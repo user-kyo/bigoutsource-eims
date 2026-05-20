@@ -4,6 +4,14 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* colors */
+  --color-darkBlue: #233B74;
+  --color-lightBlue: #288FC2;
+  --color-orange: #E07E3C;
+  --color-purple: #794183;
+
+  
 }
 
 @layer base {
