@@ -8,6 +8,7 @@ import employeeRoutes from './routes/employee.routes.js';
 import deviceRoutes, { assignmentRouter } from './routes/device.routes.js';
 import siteRoutes from './routes/site.routes.js';
 import auditLogRoutes from './routes/auditLog.routes.js';
+import accountRoutes from './routes/account.routes.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 
 const app = express();
@@ -49,6 +50,7 @@ const apiLimiter = rateLimit({
 app.use('/api', apiLimiter);
 app.get('/health', (req, res) => res.json({ success: true, message: 'API is healthy' }));
 app.use('/api/auth', authRoutes);
+app.use('/api/accounts', accountRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/sites', siteRoutes);
 app.use('/api/devices', deviceRoutes);
