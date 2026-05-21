@@ -24,9 +24,18 @@ export async function apiRequest(path, options = {}) {
     },
   });
 
-  const payload = await response.json().catch(() => ({}));
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
 
   if (!response.ok) {
+    throw new Error(payload.message || 'API request failed');
+  }
+
+  if (!contentType.includes('application/json')) {
+    throw new Error('API returned a non-JSON response. Check VITE_API_BASE_URL and backend routing.');
+  }
+
+  if (payload.success === false) {
     throw new Error(payload.message || 'API request failed');
   }
 

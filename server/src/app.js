@@ -11,12 +11,27 @@ import auditLogRoutes from './routes/auditLog.routes.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 
 const app = express();
+const localDevOriginPattern = /^http:\/\/(localhost|127\.0\.0\.1):30\d{2}$/;
+
+function resolveCorsOrigin(origin, callback) {
+  if (!origin) {
+    callback(null, true);
+    return;
+  }
+
+  if (env.corsOrigins.includes(origin) || (env.nodeEnv === 'development' && localDevOriginPattern.test(origin))) {
+    callback(null, true);
+    return;
+  }
+
+  callback(new Error(`Origin ${origin} is not allowed by CORS`));
+}
 
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(
   cors({
-    origin: env.corsOrigin,
+    origin: resolveCorsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

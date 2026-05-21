@@ -14,6 +14,10 @@ export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 5000),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   db: {
     host: process.env.DB_HOST,
     port: Number(process.env.DB_PORT || 5432),

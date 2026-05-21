@@ -6,14 +6,7 @@ export function Header({ title }: { title: string }) {
       <h1 className="text-lg font-semibold text-[#111827]">{title}</h1>
       
       <div className="flex items-center gap-6">
-        <div className="relative">
-          <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text" 
-            placeholder="Search employees..." 
-            className="pl-10 pr-4 py-1.5 bg-[#F3F4F6] border-none rounded-full text-sm w-64 focus:ring-2 focus:ring-[#111827] transition-all"
-          />
-        </div>
+        
         
         <div className="flex items-center gap-4">
           <button className="relative p-2 text-[#4B5563] hover:bg-[#F3F4F6] rounded-full transition-colors">

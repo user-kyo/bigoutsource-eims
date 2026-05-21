@@ -6,6 +6,6 @@ import { authorize } from '../middleware/role.middleware.js';
 const router = Router();
 
 router.use(authenticate);
-router.get('/', authorize('super_admin'), AuditLogController.list);
+router.get('/', authorize('super_admin', 'hr_admin', 'it_admin'), AuditLogController.list);
 
 export default router;

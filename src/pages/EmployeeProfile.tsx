@@ -1,22 +1,237 @@
-import { useParams, Link } from 'react-router-dom';
-import { useState } from 'react';
-import { 
-  ArrowLeft, Mail, Phone, MapPin, Calendar, Briefcase, ShieldCheck, 
-  FileText, Clock, Edit, ExternalLink, User, Laptop, Info, Key, 
-  ShieldAlert, Eye, EyeOff, Globe
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import type { ElementType, ReactNode } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Briefcase,
+  Calendar,
+  Clock,
+  Edit,
+  Eye,
+  EyeOff,
+  Globe,
+  Key,
+  Laptop,
+  Loader2,
+  Mail,
+  MapPin,
+  Phone,
+  Save,
+  ShieldAlert,
+  ShieldCheck,
+  User,
+  X,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
-import { MOCK_EMPLOYEES } from '@/src/types';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { cn } from '@/src/lib/utils';
-import toast from 'react-hot-toast';
+import { employeeService } from '@/src/services/employeeService';
+import { siteService } from '@/src/services/siteService';
+import { auditLogService } from '@/src/services/auditLogService';
+
+type SiteOption = {
+  id: string;
+  name: string;
+};
+
+type EmployeeForm = {
+  employeeNumber: string;
+  fullName: string;
+  accountAssignment: string;
+  phone: string;
+  address: string;
+  boEmail: string;
+  emailPassword: string;
+  lmsAccount: string;
+  status: 'active' | 'inactive' | 'archive';
+  siteId: string;
+  site: string;
+  pcName: string;
+  biosDate: string;
+  windowsKey: string;
+  rustdeskId: string;
+  remoteId: string;
+  esetStatus: 'installed' | 'missing' | 'update_required';
+  activityWatchStatus: 'installed' | 'missing';
+};
+
+const emptyEmployee: EmployeeForm = {
+  employeeNumber: '',
+  fullName: '',
+  accountAssignment: '',
+  phone: '',
+  address: '',
+  boEmail: '',
+  emailPassword: '',
+  lmsAccount: '',
+  status: 'active',
+  siteId: '',
+  site: '',
+  pcName: '',
+  biosDate: '',
+  windowsKey: '',
+  rustdeskId: '',
+  remoteId: '',
+  esetStatus: 'missing',
+  activityWatchStatus: 'missing',
+};
+
+const editableFields: Array<keyof EmployeeForm> = [
+  'employeeNumber',
+  'fullName',
+  'accountAssignment',
+  'phone',
+  'address',
+  'boEmail',
+  'emailPassword',
+  'status',
+  'siteId',
+  'pcName',
+  'biosDate',
+  'windowsKey',
+  'rustdeskId',
+  'remoteId',
+  'esetStatus',
+  'activityWatchStatus',
+];
+
+function normalizeStatus(value?: string): EmployeeForm['esetStatus'] {
+  if (value === 'Installed') return 'installed';
+  if (value === 'Update Required') return 'update_required';
+  if (value === 'installed' || value === 'update_required') return value;
+  return 'missing';
+}
+
+function normalizeActivityWatch(value?: string): EmployeeForm['activityWatchStatus'] {
+  return value === 'Installed' || value === 'installed' ? 'installed' : 'missing';
+}
+
+function formatStatus(value: string) {
+  if (value === 'installed') return 'Installed';
+  if (value === 'update_required') return 'Update Required';
+  return 'Missing';
+}
+
+function generateLmsAccount(fullName = '') {
+  const parts = fullName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s'-]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) return '';
+  if (parts.length === 1) return parts[0].replace(/['-]/g, '');
+
+  return `${parts[0].replace(/['-]/g, '')}.${parts[parts.length - 1].replace(/['-]/g, '')}`;
+}
+
+function formatDate(value?: string) {
+  if (!value) return 'Unknown';
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function actionLabel(action: string) {
+  return action.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function detailsText(details: any) {
+  if (!details) return 'No details recorded';
+
+  if (Array.isArray(details.changes) && details.changes.length) {
+    return details.changes.map((change: any) => `${change.field}: "${change.from || '-'}" to "${change.to || '-'}"`).join('; ');
+  }
+
+  return Object.entries(details)
+    .filter(([key]) => key !== 'changes')
+    .map(([key, value]) => `${key}: ${String(value || '-')}`)
+    .join('; ') || 'No details recorded';
+}
+
+function normalizeEmployee(emp: any): EmployeeForm {
+  return {
+    employeeNumber: emp?.employeeNumber || emp?.employeeId || '',
+    fullName: emp?.fullName || '',
+    accountAssignment: emp?.accountAssignment || '',
+    phone: emp?.phone || '',
+    address: emp?.address || '',
+    boEmail: emp?.boEmail || '',
+    emailPassword: emp?.emailPassword || '',
+    lmsAccount: emp?.lmsAccount || '',
+    status: emp?.status || 'active',
+    siteId: emp?.siteId || '',
+    site: emp?.site || '',
+    pcName: emp?.pcName || '',
+    biosDate: emp?.biosDate ? String(emp.biosDate).slice(0, 10) : '',
+    windowsKey: emp?.windowsKey || '',
+    rustdeskId: emp?.rustdeskId || emp?.rustDeskId || '',
+    remoteId: emp?.remoteId || '',
+    esetStatus: normalizeStatus(emp?.esetStatus),
+    activityWatchStatus: normalizeActivityWatch(emp?.activityWatchStatus),
+  };
+}
 
 export default function EmployeeProfile() {
   const { id } = useParams();
   const { user } = useAuth();
-  const employee = MOCK_EMPLOYEES.find(e => e.id === id) || MOCK_EMPLOYEES[0];
-  
+  const [employee, setEmployee] = useState<EmployeeForm>(emptyEmployee);
+  const [form, setForm] = useState<EmployeeForm>(emptyEmployee);
+  const [sites, setSites] = useState<SiteOption[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showSensitive, setShowSensitive] = useState(false);
+
+  const hasChanges = useMemo(
+    () => editableFields.some((field) => String(form[field] || '') !== String(employee[field] || '')),
+    [form, employee]
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfile() {
+      if (!id) return;
+      setIsLoading(true);
+
+      try {
+        const [employeeData, siteData, auditData] = await Promise.all([
+          employeeService.get(id),
+          siteService.list().catch(() => []),
+          auditLogService.list({ entityType: 'employees', entityId: id, limit: 50 }).catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        const normalized = normalizeEmployee(employeeData);
+        setEmployee(normalized);
+        setForm(normalized);
+        setSites((Array.isArray(siteData) ? siteData : []).map((site: any) => ({ id: site.id, name: site.name })));
+        setAuditLogs(Array.isArray(auditData) ? auditData : []);
+      } catch (error: any) {
+        toast.error(error.message || 'Unable to load employee profile');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
+
+  const updateForm = (field: keyof EmployeeForm, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
 
   const handleReveal = () => {
     if (user?.role === 'viewer') {
@@ -24,253 +239,436 @@ export default function EmployeeProfile() {
       return;
     }
     setShowSensitive(!showSensitive);
-    if (!showSensitive) {
-      toast.success('Activity logged: Sensitive data revealed');
+  };
+
+  const startEditing = () => {
+    setForm(employee);
+    setIsEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setForm(employee);
+    setIsEditing(false);
+  };
+
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!id) return;
+
+    if (!hasChanges) return;
+
+    if (!form.employeeNumber.trim() || !form.fullName.trim() || !form.accountAssignment.trim() || !form.siteId) {
+      toast.error('ID, name, account, and site are required');
+      return;
+    }
+
+    const selectedSite = sites.find((site) => site.id === form.siteId);
+    setIsSaving(true);
+
+    try {
+      const updated = await employeeService.update(id, {
+        employeeNumber: form.employeeNumber.trim(),
+        fullName: form.fullName.trim(),
+        accountAssignment: form.accountAssignment.trim(),
+        phone: form.phone.trim() || undefined,
+        address: form.address.trim() || undefined,
+        boEmail: form.boEmail.trim() || undefined,
+        emailPassword: form.emailPassword.trim() || undefined,
+        status: form.status,
+        siteId: selectedSite?.id,
+        siteName: selectedSite?.name,
+        pcName: form.pcName.trim() || undefined,
+        biosDate: form.biosDate || undefined,
+        windowsKey: form.windowsKey.trim() || undefined,
+        rustdeskId: form.rustdeskId.trim() || undefined,
+        remoteId: form.remoteId.trim() || undefined,
+        esetStatus: form.esetStatus,
+        activityWatchStatus: form.activityWatchStatus,
+      });
+
+      const normalized = normalizeEmployee(updated);
+      const refreshedLogs = await auditLogService.list({ entityType: 'employees', entityId: id, limit: 50 }).catch(() => auditLogs);
+      setEmployee(normalized);
+      setForm(normalized);
+      setAuditLogs(Array.isArray(refreshedLogs) ? refreshedLogs : []);
+      setIsEditing(false);
+      toast.success('Employee record updated');
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to update employee record');
+    } finally {
+      setIsSaving(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <PageLayout title="Employee Profile">
+        <div className="h-96 flex flex-col items-center justify-center text-[#6B7280]">
+          <Loader2 className="w-8 h-8 animate-spin mb-3" />
+          <p className="text-sm font-bold">Loading employee profile</p>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  const pageTitle = employee.fullName ? `Profile: ${employee.fullName}` : 'Employee Profile';
+
   return (
-    <PageLayout title={`Profile: ${employee.fullName}`}>
-      <div className="flex flex-col gap-8 pb-12">
+    <PageLayout title={pageTitle}>
+      <form onSubmit={saveProfile} className="flex flex-col gap-8 pb-12">
         <Link to="/directory" className="flex items-center gap-2 text-sm font-bold text-[#6B7280] hover:text-[#111827] transition-colors w-fit uppercase tracking-tighter">
           <ArrowLeft className="w-4 h-4" />
           Employee Directory
         </Link>
 
-        {/* Hero Banner */}
         <div className="relative bg-white rounded-3xl border border-[#E5E7EB] overflow-hidden shadow-sm">
-          <div className="h-32 bg-gradient-to-br from-[#111827] via-[#1F2937] to-[#111827]"></div>
-          <div className="px-8 pb-8 flex flex-col md:flex-row items-end gap-6 -mt-12">
-            <div className="relative">
-              <div className="w-32 h-32 rounded-3xl border-8 border-white bg-white shadow-xl overflow-hidden">
-                {employee.avatar ? (
-                   <img src={employee.avatar} className="w-full h-full object-cover" alt="" />
-                ) : (
-                  <div className="w-full h-full bg-[#F3F4F6] flex items-center justify-center text-3xl font-black text-[#9CA3AF]">
-                    {employee.fullName.charAt(0)}
+          <div className="h-24 bg-gradient-to-br from-[#111827] via-[#1F2937] to-[#111827]"></div>
+          <div className="px-8 py-7 flex flex-col md:flex-row md:items-end gap-6">
+            <div className="flex-1 min-w-0">
+              {isEditing ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Field label="ID" required>
+                    <Input value={form.employeeNumber} onChange={(value) => updateForm('employeeNumber', value)} />
+                  </Field>
+                  <div className="md:col-span-2">
+                    <Field label="Name" required>
+                      <Input value={form.fullName} onChange={(value) => updateForm('fullName', value)} />
+                    </Field>
                   </div>
-                )}
-              </div>
-              <div className={cn(
-                "absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-white",
-                employee.status === 'active' ? "bg-green-500" : "bg-gray-400"
-              )}></div>
-            </div>
-            
-            <div className="flex-1 min-w-0 pb-2">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+                </div>
+              ) : (
                 <div>
-                  <h2 className="text-3xl font-black text-[#111827] tracking-tight">{employee.fullName}</h2>
-                  <p className="text-[#6B7280] font-bold mt-1 uppercase text-xs tracking-widest">{employee.employeeId} • {employee.site}</p>
+                  <h2 className="text-3xl font-black text-[#111827] tracking-tight">{employee.fullName || 'Unnamed Employee'}</h2>
+                  <p className="text-[#6B7280] font-bold mt-1 uppercase text-xs tracking-widest">
+                    {employee.employeeNumber || 'No ID'} | {employee.site || 'Unassigned'}
+                  </p>
                 </div>
-                <div className="flex gap-3">
-                  <button className="flex items-center gap-2 px-5 py-2.5 bg-[#111827] text-white rounded-xl text-sm font-bold hover:bg-[#374151] transition-all shadow-lg shadow-[#11182720]">
-                    <Edit className="w-4 h-4" />
-                    Update Record
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              {isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={cancelEditing}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-5 py-2.5 border border-[#E5E7EB] bg-white rounded-xl text-sm font-bold text-[#4B5563] hover:text-[#111827] transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
                   </button>
-                </div>
-              </div>
+                  <button
+                    type="submit"
+                    disabled={isSaving || !hasChanges}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#111827] text-white rounded-xl text-sm font-bold hover:bg-[#374151] disabled:bg-[#D1D5DB] disabled:shadow-none disabled:cursor-not-allowed transition-all shadow-lg shadow-[#11182720]"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Save Changes
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-[#111827] text-white rounded-xl text-sm font-bold hover:bg-[#374151] transition-all shadow-lg shadow-[#11182720]"
+                >
+                  <Edit className="w-4 h-4" />
+                  Update Record
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Main Info Columns */}
           <div className="lg:col-span-8 space-y-8">
-            
-            {/* Section: Work & Account Information */}
-            <section className="bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 bg-[#F3F4F6] rounded-xl text-[#111827]">
-                  <Globe className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg font-black text-[#111827]">Work & Account Info</h3>
-              </div>
-              
+            <ProfileSection icon={Globe} title="Work & Account Info">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                {[
-                  { label: 'Account/Project', value: employee.accountAssignment, icon: Briefcase },
-                  { label: 'BigOutsource Email', value: employee.boEmail, icon: Mail },
-                  { label: 'LMS Account', value: employee.lmsAccount || 'Not Assigned', icon: User },
-                  { label: 'Status', value: employee.status.toUpperCase(), icon: Info },
-                ].map((item, i) => (
-                  <div key={i} className="group">
-                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1.5">{item.label}</p>
-                    <div className="flex items-center gap-3">
-                      <item.icon className="w-4 h-4 text-[#D1D5DB] group-hover:text-[#111827] transition-colors" />
-                      <span className="text-sm font-bold text-[#111827]">{item.value}</span>
+                <ProfileField label="Account/Project" icon={Briefcase} editing={isEditing}>
+                  {isEditing ? <Input value={form.accountAssignment} onChange={(value) => updateForm('accountAssignment', value)} /> : employee.accountAssignment || 'Not Assigned'}
+                </ProfileField>
+                <ProfileField label="BigOutsource Email" icon={Mail} editing={isEditing}>
+                  {isEditing ? <Input type="email" value={form.boEmail} onChange={(value) => updateForm('boEmail', value)} /> : employee.boEmail || 'Not Assigned'}
+                </ProfileField>
+                <ProfileField label="Email Password" icon={Key} editing={isEditing}>
+                  {isEditing ? <Input value={form.emailPassword} onChange={(value) => updateForm('emailPassword', value)} /> : employee.emailPassword || 'Not Assigned'}
+                </ProfileField>
+                <ProfileField label="LMS Account" icon={User} editing={isEditing}>
+                  {isEditing ? (
+                    <div className="px-3 py-2.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#4B5563]">
+                      {generateLmsAccount(form.fullName) || 'Generated after name is entered'}
                     </div>
-                  </div>
-                ))}
+                  ) : (
+                    employee.lmsAccount || 'Not Assigned'
+                  )}
+                </ProfileField>
+                <ProfileField label="Status" icon={ShieldCheck} editing={isEditing}>
+                  {isEditing ? (
+                    <Select value={form.status} onChange={(value) => updateForm('status', value)}>
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="archive">Archive</option>
+                    </Select>
+                  ) : (
+                    employee.status.toUpperCase()
+                  )}
+                </ProfileField>
+                <ProfileField label="Site" icon={MapPin} editing={isEditing}>
+                  {isEditing ? (
+                    <Select value={form.siteId} onChange={(value) => updateForm('siteId', value)}>
+                      <option value="">Select site</option>
+                      {sites.map((site) => (
+                        <option key={site.id} value={site.id}>
+                          {site.name}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    employee.site || 'Unassigned'
+                  )}
+                </ProfileField>
               </div>
-            </section>
+            </ProfileSection>
 
-            {/* Section: Device Information */}
-            <section className="bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm">
-               <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 bg-[#F3F4F6] rounded-xl text-[#111827]">
-                  <Laptop className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg font-black text-[#111827]">Device Assets</h3>
-              </div>
-
+            <ProfileSection icon={Laptop} title="Device Assets">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                {[
-                  { label: 'PC Name', value: employee.pcName, icon: Laptop },
-                  { label: 'BIOS Date', value: employee.biosDate, icon: Calendar },
-                  { label: 'Remote Access ID', value: employee.rustDeskId, icon: Globe },
-                  { label: 'Remote Login ID', value: employee.remoteId, icon: ShieldCheck },
-                ].map((item, i) => (
-                  <div key={i}>
-                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1.5">{item.label}</p>
-                    <div className="flex items-center gap-3">
-                      <item.icon className="w-4 h-4 text-[#D1D5DB]" />
-                      <span className="text-sm font-bold text-[#111827] font-mono tracking-tight">{item.value}</span>
-                    </div>
-                  </div>
-                ))}
+                <ProfileField label="PC Name" icon={Laptop} editing={isEditing}>
+                  {isEditing ? <Input value={form.pcName} onChange={(value) => updateForm('pcName', value)} /> : employee.pcName || 'Unassigned'}
+                </ProfileField>
+                <ProfileField label="BIOS Date" icon={Calendar} editing={isEditing}>
+                  {isEditing ? <Input type="date" value={form.biosDate} onChange={(value) => updateForm('biosDate', value)} /> : employee.biosDate || 'Not Set'}
+                </ProfileField>
+                <ProfileField label="RustDesk ID" icon={Globe} editing={isEditing}>
+                  {isEditing ? <Input value={form.rustdeskId} onChange={(value) => updateForm('rustdeskId', value)} /> : employee.rustdeskId || 'Not Assigned'}
+                </ProfileField>
+                <ProfileField label="Remote ID" icon={ShieldCheck} editing={isEditing}>
+                  {isEditing ? <Input value={form.remoteId} onChange={(value) => updateForm('remoteId', value)} /> : employee.remoteId || 'Not Assigned'}
+                </ProfileField>
               </div>
 
-              <div className="mt-10 p-5 bg-[#F9FAFB] rounded-2xl border border-[#E5E7EB] flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white rounded-xl shadow-sm">
-                    <Key className="w-5 h-5 text-[#6B7280]" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Windows License Key</p>
-                    <p className="text-sm font-mono font-black text-[#111827] bg-[#F3F4F6] px-2 py-0.5 rounded">
-                      {showSensitive ? employee.windowsKey : '•••••-•••••-•••••-•••••-•••••'}
+              <div className="mt-10 p-5 bg-[#F9FAFB] rounded-2xl border border-[#E5E7EB] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1.5">Windows License Key</p>
+                  {isEditing ? (
+                    <Input value={form.windowsKey} onChange={(value) => updateForm('windowsKey', value)} />
+                  ) : (
+                    <p className="text-sm font-mono font-black text-[#111827] bg-[#F3F4F6] px-2 py-0.5 rounded w-fit">
+                      {showSensitive ? employee.windowsKey || 'Not Assigned' : '*****-*****-*****-*****-*****'}
                     </p>
-                  </div>
+                  )}
                 </div>
-                <button 
-                  onClick={handleReveal}
-                  className="flex items-center gap-2 px-4 py-2 border border-[#E5E7EB] bg-white rounded-xl text-xs font-bold text-[#4B5563] hover:text-[#111827] transition-all"
-                >
-                  {showSensitive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {showSensitive ? 'Hide' : 'Reveal Key'}
-                </button>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={handleReveal}
+                    className="flex items-center gap-2 px-4 py-2 border border-[#E5E7EB] bg-white rounded-xl text-xs font-bold text-[#4B5563] hover:text-[#111827] transition-all"
+                  >
+                    {showSensitive ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showSensitive ? 'Hide' : 'Reveal Key'}
+                  </button>
+                )}
               </div>
-            </section>
-
-            <section className="bg-white rounded-2xl border border-[#E5E7EB] p-8 shadow-sm">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 bg-[#F3F4F6] rounded-xl text-[#111827]">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg font-black text-[#111827]">Audit Log</h3>
-              </div>
-
-              <div className="space-y-4">
-                {[
-                  {
-                    user: 'Miguel Santos',
-                    action: 'Updated phone number',
-                    field: 'Phone Number',
-                    from: '+1 555-0100',
-                    to: employee.phone,
-                    time: 'Today, 10:42 AM',
-                  },
-                  {
-                    user: 'Admin User',
-                    action: 'Changed device assignment',
-                    field: 'PC Name',
-                    from: 'BO-DSK-00',
-                    to: employee.pcName,
-                    time: 'Yesterday, 4:18 PM',
-                  },
-                ].map((log, i) => (
-                  <div key={i} className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black text-[#111827]">{log.action}</p>
-                        <p className="text-xs font-bold text-[#6B7280] mt-1">by {log.user}</p>
-                      </div>
-                      <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider">{log.time}</p>
-                    </div>
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-bold">
-                      <div>
-                        <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Field</p>
-                        <p className="text-[#111827]">{log.field}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Previous</p>
-                        <p className="text-[#9CA3AF] line-through">{log.from}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">New Value</p>
-                        <p className="text-[#111827]">{log.to}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            </ProfileSection>
           </div>
 
-          {/* Right Column: Security & Contact */}
           <div className="lg:col-span-4 space-y-8">
-            <section className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-sm">
-              <h3 className="text-sm font-black text-[#111827] mb-6 uppercase tracking-wider flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4" /> Security Compliance
-              </h3>
+            <ProfileSection icon={ShieldAlert} title="Security Compliance" compact>
               <div className="space-y-4">
-                <div className="p-4 rounded-xl border border-[#E5E7EB] flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold text-[#9CA3AF] uppercase">ESET Status</p>
-                    <p className="text-sm font-black text-[#111827]">{employee.esetStatus}</p>
-                  </div>
-                  <div className={cn("w-2.5 h-2.5 rounded-full shadow-sm", employee.esetStatus === 'Installed' ? 'bg-green-500' : 'bg-red-500')} />
-                </div>
-                <div className="p-4 rounded-xl border border-[#E5E7EB] flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold text-[#9CA3AF] uppercase">ActivityWatch</p>
-                    <p className="text-sm font-black text-[#111827]">{employee.activityWatchStatus}</p>
-                  </div>
-                  <div className={cn("w-2.5 h-2.5 rounded-full shadow-sm", employee.activityWatchStatus === 'Installed' ? 'bg-green-500' : 'bg-red-500')} />
-                </div>
+                <ComplianceField
+                  label="ESET Status"
+                  value={formatStatus(employee.esetStatus)}
+                  editing={isEditing}
+                  status={employee.esetStatus === 'installed'}
+                >
+                  <Select value={form.esetStatus} onChange={(value) => updateForm('esetStatus', value)}>
+                    <option value="missing">Missing</option>
+                    <option value="installed">Installed</option>
+                    <option value="update_required">Update Required</option>
+                  </Select>
+                </ComplianceField>
+                <ComplianceField
+                  label="ActivityWatch"
+                  value={formatStatus(employee.activityWatchStatus)}
+                  editing={isEditing}
+                  status={employee.activityWatchStatus === 'installed'}
+                >
+                  <Select value={form.activityWatchStatus} onChange={(value) => updateForm('activityWatchStatus', value)}>
+                    <option value="missing">Missing</option>
+                    <option value="installed">Installed</option>
+                  </Select>
+                </ComplianceField>
               </div>
-            </section>
+            </ProfileSection>
 
-             <section className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-sm">
-              <h3 className="text-sm font-black text-[#111827] mb-6 uppercase tracking-wider flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Contact & Location
-              </h3>
+            <ProfileSection icon={Phone} title="Contact & Location" compact>
               <div className="space-y-6">
-                 <div>
-                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Phone Number</p>
-                    <p className="text-sm font-bold text-[#111827]">{employee.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Address</p>
-                    <p className="text-sm font-bold text-[#111827] leading-relaxed">{employee.address}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1">Site Office</p>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F3F4F6] rounded-lg w-fit">
-                      <MapPin className="w-3.5 h-3.5 text-[#111827]" />
-                      <span className="text-xs font-bold text-[#111827]">{employee.site}</span>
-                    </div>
-                  </div>
+                <ProfileField label="Phone Number" editing={isEditing}>
+                  {isEditing ? <Input value={form.phone} onChange={(value) => updateForm('phone', value)} /> : employee.phone || 'Not Assigned'}
+                </ProfileField>
+                <ProfileField label="Address" editing={isEditing}>
+                  {isEditing ? <Input value={form.address} onChange={(value) => updateForm('address', value)} /> : employee.address || 'Not Assigned'}
+                </ProfileField>
               </div>
-            </section>
+            </ProfileSection>
+          </div>
 
-             <section className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-sm">
-              <h3 className="text-sm font-black text-[#111827] mb-4 uppercase tracking-wider flex items-center gap-2 whitespace-nowrap overflow-hidden">
-                <FileText className="w-4 h-4 shrink-0" /> Documents
-              </h3>
-              <div className="space-y-2">
-                {['Contract.pdf', 'ID_Proof.jpg'].map((doc) => (
-                  <button key={doc} className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-[#F9FAFB] transition-colors group">
-                    <span className="text-xs font-bold text-[#4B5563] group-hover:text-[#111827]">{doc}</span>
-                    <ExternalLink className="w-3 h-3 text-[#D1D5DB]" />
-                  </button>
-                ))}
+          <div className="lg:col-span-12">
+            <ProfileSection icon={Clock} title="Audit History">
+              <div className="space-y-4">
+                {auditLogs.length ? (
+                  auditLogs.map((log) => (
+                    <div key={log.id} className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-[#111827]">{actionLabel(log.action)}</p>
+                          <p className="text-xs font-bold text-[#6B7280] mt-1">by {log.userEmail || 'System'}</p>
+                        </div>
+                        <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider">{formatDate(log.createdAt)}</p>
+                      </div>
+                      <p className="text-sm font-medium text-[#4B5563] leading-relaxed mt-4">{detailsText(log.details)}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm font-bold text-[#9CA3AF]">No audit history for this employee yet.</p>
+                )}
               </div>
-            </section>
+            </ProfileSection>
           </div>
         </div>
-      </div>
+      </form>
     </PageLayout>
+  );
+}
+
+function ProfileSection({
+  icon: Icon,
+  title,
+  children,
+  compact = false,
+}: {
+  icon: ElementType;
+  title: string;
+  children: ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <section className={cn('bg-white rounded-2xl border border-[#E5E7EB] shadow-sm', compact ? 'p-6' : 'p-8')}>
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-2 bg-[#F3F4F6] rounded-xl text-[#111827]">
+          <Icon className="w-5 h-5" />
+        </div>
+        <h3 className="text-lg font-black text-[#111827]">{title}</h3>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ProfileField({
+  label,
+  icon: Icon,
+  editing,
+  children,
+}: {
+  label: string;
+  icon?: ElementType;
+  editing?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1.5">{label}</p>
+      {editing ? (
+        children
+      ) : (
+        <div className="flex items-center gap-3">
+          {Icon && <Icon className="w-4 h-4 text-[#D1D5DB]" />}
+          <span className="text-sm font-bold text-[#111827]">{children}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComplianceField({
+  label,
+  value,
+  status,
+  editing,
+  children,
+}: {
+  label: string;
+  value: string;
+  status: boolean;
+  editing: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="p-4 rounded-xl border border-[#E5E7EB]">
+      <p className="text-[10px] font-bold text-[#9CA3AF] uppercase mb-1.5">{label}</p>
+      {editing ? (
+        children
+      ) : (
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-black text-[#111827]">{value}</p>
+          <div className={cn('w-2.5 h-2.5 rounded-full shadow-sm', status ? 'bg-green-500' : 'bg-red-500')} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">
+        {label} {required && <span className="text-red-500">*</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function Input({
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      placeholder={placeholder}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none focus:ring-2 focus:ring-[#111827] transition-all"
+    />
+  );
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#4B5563] outline-none focus:ring-2 focus:ring-[#111827]"
+    >
+      {children}
+    </select>
   );
 }

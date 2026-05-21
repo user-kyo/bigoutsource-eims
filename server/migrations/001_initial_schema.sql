@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS employees (
   employee_number VARCHAR(60) NOT NULL UNIQUE,
   full_name VARCHAR(180) NOT NULL,
   bo_email VARCHAR(255) UNIQUE,
+  email_password TEXT,
   phone VARCHAR(50),
   address TEXT,
   account_assignment VARCHAR(180),
@@ -59,6 +60,8 @@ CREATE TABLE IF NOT EXISTS employees (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS email_password TEXT;
 
 CREATE TABLE IF NOT EXISTS employee_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

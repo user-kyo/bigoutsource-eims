@@ -1,46 +1,130 @@
-import { Users, UserCheck, UserMinus, ShieldAlert, Laptop, Key, Clock, AlertTriangle, ArrowUpRight, ArrowDownRight, MapPin } from 'lucide-react';
-import { PageLayout } from '@/src/components/layout/PageLayout';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ArrowUpRight, Clock, Laptop, MapPin, UserCheck, UserMinus, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Clock as ClockIcon } from 'lucide-react';
+import { PageLayout } from '@/src/components/layout/PageLayout';
+import { employeeService } from '@/src/services/employeeService';
+import { deviceService } from '@/src/services/deviceService';
+import { auditLogService } from '@/src/services/auditLogService';
 
-const stats = [
-  { label: 'Total Personnel', value: '1,248', change: '+24', trend: 'up', icon: Users },
-  { label: 'Active Staff', value: '1,192', change: '+12', trend: 'up', icon: UserCheck },
-  { label: 'Inactive/Archive', value: '56', change: '-2', trend: 'down', icon: UserMinus },
-  { label: 'Assigned Assets', value: '1,210', change: '+8', trend: 'up', icon: Laptop },
-];
+function asArray(value: any) {
+  return Array.isArray(value) ? value : [];
+}
 
-const securityalerts = [
-  { label: 'Missing ESET', value: '12', color: 'text-red-600', bg: 'bg-red-50' },
-  { label: 'Missing ActivityWatch', value: '8', color: 'text-orange-600', bg: 'bg-orange-50' },
-  { label: 'Unlicensed Windows', value: '5', color: 'text-yellow-600', bg: 'bg-yellow-50' },
-];
+function formatTime(value?: string) {
+  if (!value) return 'Unknown time';
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function actionLabel(action: string) {
+  return action.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export default function Dashboard() {
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadDashboard() {
+      setIsLoading(true);
+      const [employeeResult, deviceResult, logResult] = await Promise.allSettled([
+        employeeService.list(),
+        deviceService.list(),
+        auditLogService.list({ limit: 8 }),
+      ]);
+
+      if (!isMounted) return;
+
+      setEmployees(employeeResult.status === 'fulfilled' ? asArray(employeeResult.value) : []);
+      setDevices(deviceResult.status === 'fulfilled' ? asArray(deviceResult.value) : []);
+      setLogs(logResult.status === 'fulfilled' ? asArray(logResult.value) : []);
+      setIsLoading(false);
+    }
+
+    loadDashboard();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    const active = employees.filter((employee) => employee.status === 'active').length;
+    const inactive = employees.filter((employee) => employee.status !== 'active').length;
+    const assigned = devices.filter((device) => device.status === 'assigned').length;
+
+    return [
+      { label: 'Total Personnel', value: employees.length, icon: Users },
+      { label: 'Active Staff', value: active, icon: UserCheck },
+      { label: 'Inactive/Archive', value: inactive, icon: UserMinus },
+      { label: 'Assigned Assets', value: assigned, icon: Laptop },
+    ];
+  }, [employees, devices]);
+
+  const securityAlerts = useMemo(
+    () => [
+      {
+        label: 'Missing ESET',
+        value: devices.filter((device) => device.esetStatus === 'missing' || device.esetStatus === 'Missing').length,
+        color: 'text-red-600',
+        bg: 'bg-red-50',
+      },
+      {
+        label: 'Missing ActivityWatch',
+        value: devices.filter((device) => device.activityWatchStatus === 'missing' || device.activityWatchStatus === 'Missing').length,
+        color: 'text-orange-600',
+        bg: 'bg-orange-50',
+      },
+      {
+        label: 'Unlicensed Windows',
+        value: devices.filter((device) => !device.windowsKey).length,
+        color: 'text-yellow-600',
+        bg: 'bg-yellow-50',
+      },
+    ],
+    [devices]
+  );
+
+  const siteDistribution = useMemo(() => {
+    const counts = new Map<string, number>();
+    employees.forEach((employee) => {
+      counts.set(employee.site || 'Unassigned', (counts.get(employee.site || 'Unassigned') || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([site, count]) => ({ site, count }));
+  }, [employees]);
+
+  const totalPersonnel = Math.max(employees.length, 1);
+
   return (
     <PageLayout title="System Overview">
-      {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {stats.map((stat, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm">
+        {stats.map((stat) => (
+          <div key={stat.label} className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-[#F3F4F6] rounded-xl text-[#111827]">
                 <stat.icon className="w-5 h-5" />
               </div>
-              <div className={`flex items-center gap-1 text-[10px] font-bold uppercase ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                {stat.change}
-                {stat.trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+              <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-green-600">
+                Live
+                <ArrowUpRight className="w-3 h-3" />
               </div>
             </div>
             <p className="text-xs text-[#6B7280] font-bold uppercase tracking-wider">{stat.label}</p>
-            <p className="text-3xl font-black text-[#111827] mt-1">{stat.value}</p>
+            <p className="text-3xl font-black text-[#111827] mt-1">{isLoading ? '...' : stat.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Security Monitoring */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {securityalerts.map((alert) => (
+        {securityAlerts.map((alert) => (
           <div key={alert.label} className={`flex items-center justify-between p-5 rounded-2xl border border-[#E5E7EB] ${alert.bg}`}>
             <div className="flex items-center gap-4">
               <div className={`p-2 rounded-lg bg-white shadow-sm ${alert.color}`}>
@@ -51,68 +135,66 @@ export default function Dashboard() {
                 <p className={`text-xl font-black ${alert.color}`}>{alert.value} Devices</p>
               </div>
             </div>
-            <button className="text-[10px] font-black uppercase text-[#111827] hover:underline">View All</button>
+            <Link to="/assets" className="text-[10px] font-black uppercase text-[#111827] hover:underline">View All</Link>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Site Distribution */}
         <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm">
           <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[#9CA3AF]" /> 
+            <MapPin className="w-5 h-5 text-[#9CA3AF]" />
             Personnel per Site
           </h3>
           <div className="space-y-6">
-            {[
-              { site: 'Main Office - Manila', count: 540, total: 1248, color: 'bg-[#111827]' },
-              { site: 'Satellite - Cebu', count: 320, total: 1248, color: 'bg-[#374151]' },
-              { site: 'Remote Operations', count: 388, total: 1248, color: 'bg-[#6B7280]' },
-            ].map((item) => (
-              <div key={item.site} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-[#4B5563]">{item.site}</span>
-                  <span className="text-[#111827] text-xs font-black">{Math.round((item.count / item.total) * 100)}% ({item.count})</span>
+            {siteDistribution.length ? (
+              siteDistribution.map((item) => (
+                <div key={item.site} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-bold text-[#4B5563]">{item.site}</span>
+                    <span className="text-[#111827] text-xs font-black">{Math.round((item.count / totalPersonnel) * 100)}% ({item.count})</span>
+                  </div>
+                  <div className="w-full h-3 bg-[#F3F4F6] rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(item.count / totalPersonnel) * 100}%` }}
+                      className="h-full bg-[#111827]"
+                    />
+                  </div>
                 </div>
-                <div className="w-full h-3 bg-[#F3F4F6] rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(item.count / item.total) * 100}%` }}
-                    className={`h-full ${item.color}`} 
-                  />
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm font-bold text-[#9CA3AF]">No personnel records yet.</p>
+            )}
           </div>
         </div>
 
-        {/* Recent Updates */}
         <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm">
-           <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#9CA3AF]" /> 
+          <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[#9CA3AF]" />
             Recent Activity
           </h3>
           <div className="space-y-6">
-            {[
-              { user: 'HR Admin', action: 'Archived Employee', target: 'John Doe (BO-2021-092)', time: '12 mins ago' },
-              { user: 'IT Admin', action: 'Updated ESET Status', target: 'BO-LAP-88', time: '45 mins ago' },
-              { user: 'Super Admin', action: 'Revealed Windows Key', target: 'Jane Smith (BO-2022-015)', time: '2 hours ago' },
-              { user: 'HR Admin', action: 'Added New Employee', target: 'Mark Wilson', time: '5 hours ago' },
-            ].map((log, i) => (
-              <div key={i} className="flex items-start gap-4 pb-4 border-b border-[#F3F4F6] last:border-0 last:pb-0">
-                <div className="w-2 h-2 rounded-full bg-[#111827] mt-1.5 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-[#111827]">
-                    {log.user} <span className="font-medium text-[#6B7280]">{log.action.toLowerCase()} for</span> {log.target}
-                  </p>
-                  <p className="text-[10px] text-[#9CA3AF] uppercase font-bold mt-1">{log.time}</p>
+            {logs.length ? (
+              logs.map((log) => (
+                <div key={log.id} className="flex items-start gap-4 pb-4 border-b border-[#F3F4F6] last:border-0 last:pb-0">
+                  <div className="w-2 h-2 rounded-full bg-[#111827] mt-1.5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-[#111827]">
+                      {log.userEmail || 'System'} <span className="font-medium text-[#6B7280]">{actionLabel(log.action).toLowerCase()}</span>
+                    </p>
+                    <p className="text-xs text-[#4B5563] mt-1">{log.details?.fullName || log.details?.employeeNumber || log.entityType}</p>
+                    <p className="text-[10px] text-[#9CA3AF] uppercase font-bold mt-1">{formatTime(log.createdAt)}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm font-bold text-[#9CA3AF]">No audit activity yet.</p>
+            )}
           </div>
-          <button className="w-full mt-6 py-2 text-xs font-bold text-[#111827] border border-[#E5E7EB] rounded-xl hover:bg-[#F9FAFB] transition-colors">
+          <Link to="/logs" className="block text-center w-full mt-6 py-2 text-xs font-bold text-[#111827] border border-[#E5E7EB] rounded-xl hover:bg-[#F9FAFB] transition-colors">
             View Full Audit Logs
-          </button>
+          </Link>
         </div>
       </div>
     </PageLayout>
