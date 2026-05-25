@@ -9,6 +9,8 @@ import deviceRoutes, { assignmentRouter } from './routes/device.routes.js';
 import siteRoutes from './routes/site.routes.js';
 import auditLogRoutes from './routes/auditLog.routes.js';
 import accountRoutes from './routes/account.routes.js';
+import userRoutes from './routes/user.routes.js';
+import { authenticate, requireRole } from './middleware/auth.middleware.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 
 const app = express();
@@ -56,6 +58,12 @@ app.use('/api/sites', siteRoutes);
 app.use('/api/devices', deviceRoutes);
 app.use('/api/device-assignments', assignmentRouter);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/employees', authenticate, employeeRoutes);
+app.use('/api/sites', authenticate, siteRoutes);
+app.use('/api/devices', authenticate, deviceRoutes);
+app.use('/api/device-assignments', authenticate, assignmentRouter);
+app.use('/api/audit-logs', authenticate, auditLogRoutes);
+app.use('/api/users', authenticate, requireRole('super_admin'), userRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
