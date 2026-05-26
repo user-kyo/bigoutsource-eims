@@ -12,10 +12,11 @@ export const authService = {
   },
 
   async register(input) {
-    return apiRequest('/auth/register', {
+    const data = await apiRequest('/auth/register', {
       method: 'POST',
       body: JSON.stringify(input),
     });
+    return data.user;
   },
 
   me() {
@@ -30,5 +31,12 @@ export const authService = {
     } finally {
       clearAuthToken();
     }
+  },
+
+  changePassword(currentPassword, newPassword) {
+    return apiRequest('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
   },
 };
