@@ -120,7 +120,7 @@ function normalizeEmployee(emp: any): EmployeeRecord | null {
     activityWatchStatus: titleActivityWatchStatus(emp.activityWatchStatus || emp.activitywatch) as Employee['activityWatchStatus'],
     updatedAt: emp.updatedAt || '',
     updatedBy: emp.updatedBy || '',
-    isArchived: emp.isArchived || false,
+    isArchived: emp.isArchived ?? emp.is_archived ?? false,
   };
 }
 

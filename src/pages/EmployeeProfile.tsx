@@ -174,7 +174,7 @@ function normalizeEmployee(emp: any): EmployeeForm {
     remoteId: emp?.remoteId || '',
     esetStatus: normalizeEsetStatus(emp?.esetStatus || emp?.eset),
     activityWatchStatus: normalizeActivityWatch(emp?.activityWatchStatus),
-    isArchived: emp?.isArchived || false,
+    isArchived: emp?.is_archived ?? false,
   };
 }
 
@@ -314,7 +314,7 @@ export default function EmployeeProfile() {
 
       const updated = await employeeService.update(id, {
         ...employee,
-        isArchived: newValue,
+        is_archived: newValue,
       });
 
       const normalized = normalizeEmployee(updated);
