@@ -236,6 +236,7 @@ export default function Directory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [siteFilter, setSiteFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [accountFilter, setAccountFilter] = useState('All Account');
   const [selectedFields, setSelectedFields] = useState<DirectoryFieldKey[] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
@@ -325,8 +326,9 @@ export default function Directory() {
 
       const matchesSite = siteFilter === 'All' || emp.site === siteFilter;
       const matchesStatus = statusFilter === 'All' || emp.status === statusFilter.toLowerCase();
+      const matchesAccount = accountFilter === 'All Account' || emp.accountAssignment === accountFilter;
 
-      return matchesSearch && matchesSite && matchesStatus;
+      return matchesSearch && matchesSite && matchesStatus && matchesAccount;
     });
 
   const updateForm = (field: keyof AddEmployeeForm, value: string) => {
@@ -602,6 +604,16 @@ export default function Directory() {
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
               </select>
+              <select
+                value={accountFilter}
+                onChange={(e) => setAccountFilter(e.target.value)}
+                className="px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#4B5563] outline-none focus:ring-2 focus:ring-[#111827]"
+              >
+                <option value="All Account">All Accounts</option>
+                <option value="IT Department">IT Department</option>
+                <option value="HR Department">HR Department</option>
+                <option value="Accounting Department">Accounting Department</option>
+              </select>
             </div>
           </div>
 
@@ -631,26 +643,26 @@ export default function Directory() {
         </div>
 
         <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
+          <table className="w-full text-left border-collapse min-w-[920px]">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
                 {visibleFields.map((field) => (
-                  <th key={field.key} className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">
+                  <th key={field.key} className="px-4 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">
                     {field.label}
                   </th>
                 ))}
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest"></th>
+                <th className="px-4 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F3F4F6]">
               {filteredEmployees.map((emp) => (
                 <tr key={emp.id} className="hover:bg-[#F9FAFB] transition-colors group">
                   {visibleFields.map((field) => (
-                    <td key={field.key} className="px-6 py-4 text-sm font-bold text-[#111827]">
+                    <td key={field.key} className="px-4 py-4 text-sm font-bold text-[#111827]">
                       {field.render(emp)}
                     </td>
                   ))}
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-4 py-4 text-right">
                     <Link
                       to={`/employee/${emp.id}`}
                       className="p-2 text-[#9CA3AF] hover:text-[#111827] hover:bg-white rounded-xl transition-all inline-flex items-center gap-2 text-xs font-bold"
