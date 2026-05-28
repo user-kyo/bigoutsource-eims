@@ -141,17 +141,36 @@ function actionLabel(action: string) {
   return action.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatFieldName(field: string) {
+  return field
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatValue(value: any) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
 function detailsText(details: any) {
-  if (!details) return 'No details recorded';
+  if (!details) return [];
 
   if (Array.isArray(details.changes) && details.changes.length) {
-    return details.changes.map((change: any) => `${change.field}: "${change.from || '-'}" to "${change.to || '-'}"`).join('; ');
+    return details.changes.map((change: any) => ({
+      field: formatFieldName(change.field),
+      from: formatValue(change.from),
+      to: formatValue(change.to),
+    }));
   }
 
   return Object.entries(details)
     .filter(([key]) => key !== 'changes')
-    .map(([key, value]) => `${key}: ${String(value || '-')}`)
-    .join('; ') || 'No details recorded';
+    .map(([key, value]) => ({
+      field: formatFieldName(key),
+      value: formatValue(value),
+    }));
 }
 
 function normalizeEmployee(emp: any): EmployeeForm {
@@ -174,7 +193,7 @@ function normalizeEmployee(emp: any): EmployeeForm {
     remoteId: emp?.remoteId || '',
     esetStatus: normalizeEsetStatus(emp?.esetStatus || emp?.eset),
     activityWatchStatus: normalizeActivityWatch(emp?.activityWatchStatus),
-    isArchived: emp?.is_archived ?? false,
+    isArchived: emp?.is_archived ?? emp?.isArchived ?? false,
   };
 }
 
@@ -602,7 +621,44 @@ export default function EmployeeProfile() {
                         </div>
                         <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider">{formatDate(log.createdAt)}</p>
                       </div>
-                      <p className="text-sm font-medium text-[#4B5563] leading-relaxed mt-4">{detailsText(log.details)}</p>
+                      <div className="mt-4 space-y-2">
+                        {detailsText(log.details).map((item: any, index: number) => (
+                          <div
+                            key={index}
+                            className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3"
+                          >
+                            {'to' in item ? (
+                              <div className="flex flex-col gap-1 text-sm">
+                                <span className="font-black text-[#111827]">
+                                  {item.field}
+                                </span>
+
+                                <div className="flex items-center gap-2 text-[#6B7280]">
+                                  <span className="line-through text-red-500">
+                                    {item.from}
+                                  </span>
+
+                                  <span className="font-bold text-[#9CA3AF]">→</span>
+
+                                  <span className="font-bold text-green-600">
+                                    {item.to}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex justify-between text-sm">
+                                <span className="font-black text-[#111827]">
+                                  {item.field}
+                                </span>
+
+                                <span className="text-[#4B5563] font-medium">
+                                  {item.value}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))
                 ) : (
