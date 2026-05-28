@@ -24,7 +24,7 @@ const navItems = [
   { icon: FileText, label: 'Reports', path: '/reports', roles: ['super_admin', 'admin', 'hr_admin', 'it_admin'] },
   { icon: History, label: 'Audit Logs', path: '/logs', roles: ['super_admin', 'admin', 'hr_admin', 'it_admin'] },
   { icon: UsersRound, label: 'User Management', path: '/users', roles: ['super_admin'] },
-  { icon: Settings, label: 'Settings', path: '/settings', roles: ['super_admin'] },
+  { icon: Settings, label: 'Settings', path: '/settings', roles: ['super_admin', 'admin', 'hr_admin', 'it_admin', 'viewer'] },
 ];
 
 export function Sidebar() {

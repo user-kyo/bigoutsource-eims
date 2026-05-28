@@ -13,7 +13,7 @@ export const UserService = {
     if (user.role === 'super_admin') throw new AppError('Super Admin accounts are managed separately', 400);
 
     return UserProfileModel.update(id, {
-      role: 'admin',
+      role: 'viewer',
       status: 'active',
       approvedBy: actor.id,
       approvedAt: new Date().toISOString(),

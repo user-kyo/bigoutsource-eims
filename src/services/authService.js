@@ -32,4 +32,11 @@ export const authService = {
       clearAuthToken();
     }
   },
+
+  changePassword(currentPassword, newPassword) {
+    return apiRequest('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
 };

@@ -31,4 +31,12 @@ export const AuthController = {
   async logout(req, res) {
     return success(res, null, 'Logged out');
   },
+
+  async changePassword(req, res, next) {
+    try {
+      return success(res, await AuthService.changePassword(req.user, req.body), 'Password changed');
+    } catch (error) {
+      return next(error);
+    }
+  },
 };

@@ -10,3 +10,8 @@ export const registerValidator = {
   department: { required: true, type: 'string', min: 2 },
   site: { required: true, type: 'string', min: 2 },
 };
+
+export const changePasswordValidator = {
+  currentPassword: { required: true, type: 'string', min: 1 },
+  newPassword: { required: true, type: 'string', min: 8 },
+};

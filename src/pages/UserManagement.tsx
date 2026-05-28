@@ -59,7 +59,7 @@ export default function UserManagement() {
     setBusyId(id);
     try {
       await userService.approve(id);
-      toast.success('User approved as Admin');
+      toast.success('User approved');
       await loadUsers();
     } catch (error: any) {
       toast.error(error.message || 'Unable to approve user');
