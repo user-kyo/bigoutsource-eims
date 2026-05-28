@@ -315,7 +315,7 @@ export default function Directory() {
   );
 
   const filteredEmployees = employees
-    .filter((emp) => !emp.isArchived)
+    .filter((emp) => statusFilter === 'Archived' ? emp.isArchived : !emp.isArchived)
     .filter((emp) => {
       const search = searchTerm.toLowerCase();
       const matchesSearch =
@@ -325,7 +325,7 @@ export default function Directory() {
         emp.accountAssignment.toLowerCase().includes(search);
 
       const matchesSite = siteFilter === 'All' || emp.site === siteFilter;
-      const matchesStatus = statusFilter === 'All' || emp.status === statusFilter.toLowerCase();
+      const matchesStatus = statusFilter === 'All' || statusFilter === 'Archived' || emp.status === statusFilter.toLowerCase();
       const matchesAccount = accountFilter === 'All Account' || emp.accountAssignment === accountFilter;
 
       return matchesSearch && matchesSite && matchesStatus && matchesAccount;
@@ -603,6 +603,7 @@ export default function Directory() {
                 <option value="All">All Status</option>
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
+                <option value="Archived">Archived</option>
               </select>
               <select
                 value={accountFilter}
