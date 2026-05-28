@@ -20,6 +20,7 @@ const trackedFields = [
   'remoteId',
   'esetStatus',
   'activityWatchStatus',
+  'isArchived',
 ];
 
 const systemUser = {

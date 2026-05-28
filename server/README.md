@@ -34,7 +34,7 @@ In local development, the API uses `kamote@gmail.com` / `kamote123` as the seede
 
 Keep the service-role key only in `server/.env`. Do not expose it through a `VITE_` frontend variable.
 
-4. Run `server/sql/auth_setup.sql` in the Supabase SQL Editor to create/update `public.user_profiles`.
+4. Run `server/sql/auth_setup.sql` and `server/sql/audit_logs_setup.sql` in the Supabase SQL Editor to create/update `public.user_profiles` and `public.audit_logs`.
 
 5. Start the API:
 
@@ -69,6 +69,8 @@ windows_license_key text,
 created_at timestamptz,
 updated_at timestamptz
 ```
+
+Audit history is stored in `public.audit_logs`. Run `server/sql/audit_logs_setup.sql` before using employee create/update flows so audit entries persist in Supabase and appear on `/api/audit-logs`.
 
 ## Main Endpoints
 
