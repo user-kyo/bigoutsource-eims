@@ -20,7 +20,15 @@ export const EmployeeController = {
 
   async create(req, res, next) {
     try {
-      return success(res, await EmployeeService.create(req.body, req.user, { ipAddress: req.ip }), 'Employee created', 201);
+      return success(
+        res,
+        await EmployeeService.create(req.body, req.user, {
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        }),
+        'Employee created',
+        201
+      );
     } catch (error) {
       return next(error);
     }
@@ -28,7 +36,14 @@ export const EmployeeController = {
 
   async update(req, res, next) {
     try {
-      return success(res, await EmployeeService.update(req.params.id, req.body, req.user, { ipAddress: req.ip }), 'Employee updated');
+      return success(
+        res,
+        await EmployeeService.update(req.params.id, req.body, req.user, {
+          ipAddress: req.ip,
+          userAgent: req.get('user-agent'),
+        }),
+        'Employee updated'
+      );
     } catch (error) {
       return next(error);
     }
@@ -36,7 +51,10 @@ export const EmployeeController = {
 
   async remove(req, res, next) {
     try {
-      await EmployeeService.remove(req.params.id, req.user, { ipAddress: req.ip });
+      await EmployeeService.remove(req.params.id, req.user, {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       return success(res, null, 'Employee deleted');
     } catch (error) {
       return next(error);

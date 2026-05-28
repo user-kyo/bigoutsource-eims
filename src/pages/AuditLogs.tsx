@@ -24,17 +24,59 @@ function actionLabel(action: string) {
   return action.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatFieldName(field: string) {
+  return field
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatValue(value: any) {
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
 function detailsText(details: any) {
-  if (!details) return 'No details recorded';
+  if (!details) return [];
 
   if (Array.isArray(details.changes) && details.changes.length) {
-    return details.changes.map((change: any) => `${change.field}: "${change.from || '-'}" to "${change.to || '-'}"`).join('; ');
+    return details.changes.map((change: any) => ({
+      field: formatFieldName(change.field),
+      from: formatValue(change.from),
+      to: formatValue(change.to),
+    }));
   }
 
   return Object.entries(details)
     .filter(([key]) => key !== 'changes')
-    .map(([key, value]) => `${key}: ${String(value || '-')}`)
-    .join('; ') || 'No details recorded';
+    .map(([key, value]) => ({
+      field: formatFieldName(key),
+      value: formatValue(value),
+    }));
+}
+
+function detailsSearchText(details: any) {
+  const items = detailsText(details);
+  if (!items.length) return 'No details recorded';
+
+  return items
+    .map((item: any) => ('to' in item ? `${item.field}: ${item.from} to ${item.to}` : `${item.field}: ${item.value}`))
+    .join('; ');
+}
+
+function actorLabel(log: any) {
+  return log.userName || log.userEmail || 'System';
+}
+
+function actorFilterValue(log: any) {
+  const name = actorLabel(log);
+  const email = log.userEmail && log.userEmail !== name ? ` (${log.userEmail})` : '';
+  return `${name}${email}`;
+}
+
+function entityLabel(log: any) {
+  return log.entityLabel || log.details?.fullName || log.details?.employeeNumber || log.entityId || log.entityType;
 }
 
 export default function AuditLogs() {
@@ -68,14 +110,15 @@ export default function AuditLogs() {
 
   const actionOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.action).filter(Boolean)))], [logs]);
   const entityOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.entityType).filter(Boolean)))], [logs]);
-  const userOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.userEmail || 'System')))], [logs]);
+  const userOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map(actorFilterValue)))], [logs]);
 
   const filteredLogs = logs.filter((log) => {
-    const searchable = `${log.action} ${log.entityType} ${log.userEmail} ${detailsText(log.details)}`.toLowerCase();
+    const searchable =
+      `${log.action} ${log.entityType} ${entityLabel(log)} ${log.userEmail} ${log.userName} ${log.userRole} ${log.userAgent} ${detailsSearchText(log.details)}`.toLowerCase();
     const matchesSearch = searchable.includes(search.toLowerCase());
     const matchesAction = actionFilter === 'All' || log.action === actionFilter;
     const matchesEntity = entityFilter === 'All' || log.entityType === entityFilter;
-    const matchesUser = userFilter === 'All' || (log.userEmail || 'System') === userFilter;
+    const matchesUser = userFilter === 'All' || actorFilterValue(log) === userFilter;
 
     return matchesSearch && matchesAction && matchesEntity && matchesUser;
   });
@@ -83,12 +126,17 @@ export default function AuditLogs() {
   const exportLogs = () => {
     const rows = filteredLogs.map((log) => ({
       Timestamp: formatDate(log.createdAt),
-      Operator: log.userEmail || 'System',
+      'Actor Name': actorLabel(log),
+      'Actor Email': log.userEmail || 'System',
+      'Actor ID': log.userId || 'n/a',
+      'Actor Role': log.userRole || 'n/a',
       Action: actionLabel(log.action),
       Entity: log.entityType,
+      'Entity Label': entityLabel(log),
       'Entity ID': log.entityId,
-      Details: detailsText(log.details),
+      Details: detailsSearchText(log.details),
       IP: log.ipAddress,
+      'User Agent': log.userAgent,
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -134,42 +182,62 @@ export default function AuditLogs() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left border-collapse">
-            <thead>
-              <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Timestamp</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Operator</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Action</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Target</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F3F4F6]">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-[#F9FAFB] transition-colors align-top">
-                  <td className="px-6 py-4 text-xs font-bold text-[#111827] whitespace-nowrap">{formatDate(log.createdAt)}</td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-[#111827]">{log.userEmail || 'System'}</p>
-                    <p className="text-[10px] text-[#6B7280] uppercase font-bold tracking-tighter">ID: {log.userId || 'n/a'}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter bg-[#F3F4F6] text-[#4B5563]">
-                      {actionLabel(log.action)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-[#111827]">{log.details?.fullName || log.details?.employeeNumber || log.entityType}</p>
-                    <p className="text-[10px] text-[#9CA3AF] mt-1">Entity: {log.entityType}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-[#4B5563] leading-relaxed">{detailsText(log.details)}</p>
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 shadow-sm">
+          <div className="space-y-4">
+            {filteredLogs.map((log) => (
+              <div key={log.id} className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-black text-[#111827]">{actionLabel(log.action)}</p>
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter bg-white border border-[#E5E7EB] text-[#4B5563]">
+                        {log.entityType}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-[#6B7280] mt-1">by {actorLabel(log)}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-[#9CA3AF] uppercase font-bold tracking-tighter">
+                      <span>ID: {log.userId || 'n/a'}</span>
+                      <span>Role: {log.userRole || 'n/a'}</span>
+                      {log.userEmail && <span>Email: {log.userEmail}</span>}
+                    </div>
+                  </div>
+
+                  <div className="lg:text-right">
+                    <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider">{formatDate(log.createdAt)}</p>
+                    <p className="text-xs font-bold text-[#4B5563] mt-2">{entityLabel(log)}</p>
                     {log.ipAddress && <p className="text-[10px] text-[#9CA3AF] mt-1">IP: {log.ipAddress}</p>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    {log.userAgent && <p className="text-[10px] text-[#9CA3AF] mt-1 break-all">UA: {log.userAgent}</p>}
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {detailsText(log.details).length ? (
+                    detailsText(log.details).map((item: any, index: number) => (
+                      <div key={index} className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3">
+                        {'to' in item ? (
+                          <div className="flex flex-col gap-1 text-sm">
+                            <span className="font-black text-[#111827]">{item.field}</span>
+                            <div className="flex flex-wrap items-center gap-2 text-[#6B7280]">
+                              <span className="line-through text-red-500">{item.from}</span>
+                              <span className="font-bold text-[#9CA3AF]">-&gt;</span>
+                              <span className="font-bold text-green-600">{item.to}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col sm:flex-row sm:justify-between gap-1 text-sm">
+                            <span className="font-black text-[#111827]">{item.field}</span>
+                            <span className="text-[#4B5563] font-medium break-words">{item.value}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm font-bold text-[#9CA3AF]">No details recorded</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
 
           {(isLoading || filteredLogs.length === 0) && (
             <div className="p-12 text-center">
