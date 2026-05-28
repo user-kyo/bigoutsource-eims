@@ -154,6 +154,10 @@ function detailsText(details: any) {
     .join('; ') || 'No details recorded';
 }
 
+function actorLabel(log: any) {
+  return log.userName || 'System';
+}
+
 function normalizeEmployee(emp: any): EmployeeForm {
   return {
     employeeNumber: emp?.employeeNumber || emp?.employeeId || '',
@@ -598,7 +602,7 @@ export default function EmployeeProfile() {
                       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                         <div>
                           <p className="text-sm font-black text-[#111827]">{actionLabel(log.action)}</p>
-                          <p className="text-xs font-bold text-[#6B7280] mt-1">by {log.userEmail || 'System'}</p>
+                          <p className="text-xs font-bold text-[#6B7280] mt-1">by {actorLabel(log)}</p>
                         </div>
                         <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider">{formatDate(log.createdAt)}</p>
                       </div>

@@ -1,6 +1,7 @@
 import { AccountModel } from '../models/account.model.js';
 import { AuditLogModel } from '../models/auditLog.model.js';
 import { AppError } from '../utils/apiResponse.js';
+import { auditActor } from '../utils/auditActor.js';
 
 const ACCOUNT_TYPES = ['internal', 'external'];
 
@@ -32,8 +33,7 @@ export const AccountService = {
     });
 
     await AuditLogModel.create({
-      userId: user?.id || 'system',
-      userEmail: user?.email || 'System',
+      ...auditActor(user),
       action: 'account.create',
       entityType: 'accounts',
       entityId: account.id,

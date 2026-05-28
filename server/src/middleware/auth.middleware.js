@@ -22,10 +22,17 @@ export async function authenticate(req, res, next) {
     if (profile.status === 'pending') throw new AppError('Account pending approval', 403);
     if (profile.status === 'disabled') throw new AppError('Account disabled', 403);
 
+    const metaName =
+      data.user.user_metadata?.full_name ||
+      data.user.user_metadata?.name ||
+      data.user.user_metadata?.display_name ||
+      '';
+
     req.user = {
       ...profile,
       id: profile.id,
       email: profile.email,
+      fullName: profile.fullName || metaName,
       roles: [profile.role],
     };
 

@@ -31,10 +31,22 @@ function detailsText(details: any) {
     return details.changes.map((change: any) => `${change.field}: "${change.from || '-'}" to "${change.to || '-'}"`).join('; ');
   }
 
-  return Object.entries(details)
-    .filter(([key]) => key !== 'changes')
-    .map(([key, value]) => `${key}: ${String(value || '-')}`)
-    .join('; ') || 'No details recorded';
+  return (
+    Object.entries(details)
+      .filter(([key]) => key !== 'changes')
+      .map(([key, value]) => `${key}: ${String(value || '-')}`)
+      .join('; ') || 'No details recorded'
+  );
+}
+
+function actorLabel(log: any) {
+  return log.userName || 'System';
+}
+
+function actorFilterValue(log: any) {
+  const name = actorLabel(log);
+  const email = log.userEmail && log.userEmail !== name ? ` (${log.userEmail})` : '';
+  return `${name}${email}`;
 }
 
 export default function AuditLogs() {
@@ -68,14 +80,14 @@ export default function AuditLogs() {
 
   const actionOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.action).filter(Boolean)))], [logs]);
   const entityOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.entityType).filter(Boolean)))], [logs]);
-  const userOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.userEmail || 'System')))], [logs]);
+  const userOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map(actorFilterValue)))], [logs]);
 
   const filteredLogs = logs.filter((log) => {
-    const searchable = `${log.action} ${log.entityType} ${log.userEmail} ${detailsText(log.details)}`.toLowerCase();
+    const searchable = `${log.action} ${log.entityType} ${log.userEmail} ${log.userName} ${log.userRole} ${detailsText(log.details)}`.toLowerCase();
     const matchesSearch = searchable.includes(search.toLowerCase());
     const matchesAction = actionFilter === 'All' || log.action === actionFilter;
     const matchesEntity = entityFilter === 'All' || log.entityType === entityFilter;
-    const matchesUser = userFilter === 'All' || (log.userEmail || 'System') === userFilter;
+    const matchesUser = userFilter === 'All' || actorFilterValue(log) === userFilter;
 
     return matchesSearch && matchesAction && matchesEntity && matchesUser;
   });
@@ -83,7 +95,8 @@ export default function AuditLogs() {
   const exportLogs = () => {
     const rows = filteredLogs.map((log) => ({
       Timestamp: formatDate(log.createdAt),
-      Operator: log.userEmail || 'System',
+      Operator: actorLabel(log),
+      'Operator Email': log.userEmail || 'System',
       Action: actionLabel(log.action),
       Entity: log.entityType,
       'Entity ID': log.entityId,
@@ -150,8 +163,9 @@ export default function AuditLogs() {
                 <tr key={log.id} className="hover:bg-[#F9FAFB] transition-colors align-top">
                   <td className="px-6 py-4 text-xs font-bold text-[#111827] whitespace-nowrap">{formatDate(log.createdAt)}</td>
                   <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-[#111827]">{log.userEmail || 'System'}</p>
+                    <p className="text-sm font-bold text-[#111827]">{actorLabel(log)}</p>
                     <p className="text-[10px] text-[#6B7280] uppercase font-bold tracking-tighter">ID: {log.userId || 'n/a'}</p>
+                    {log.userEmail && <p className="text-[10px] text-[#9CA3AF] mt-1">{log.userEmail}</p>}
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter bg-[#F3F4F6] text-[#4B5563]">

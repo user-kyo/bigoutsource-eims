@@ -1,6 +1,7 @@
 import { DeviceModel } from '../models/device.model.js';
 import { AuditLogModel } from '../models/auditLog.model.js';
 import { AppError } from '../utils/apiResponse.js';
+import { auditActor } from '../utils/auditActor.js';
 
 export const DeviceService = {
   list() {
@@ -16,8 +17,7 @@ export const DeviceService = {
   async create(data, user, meta = {}) {
     const device = await DeviceModel.create(data);
     await AuditLogModel.create({
-      userId: user?.id || 'system',
-      userEmail: user?.email || 'System',
+      ...auditActor(user),
       action: 'device.create',
       entityType: 'devices',
       entityId: device.id,
@@ -31,8 +31,7 @@ export const DeviceService = {
     const device = await DeviceModel.update(id, data);
     if (!device) throw new AppError('Device not found', 404);
     await AuditLogModel.create({
-      userId: user?.id || 'system',
-      userEmail: user?.email || 'System',
+      ...auditActor(user),
       action: 'device.update',
       entityType: 'devices',
       entityId: id,
@@ -45,8 +44,7 @@ export const DeviceService = {
     const removed = await DeviceModel.remove(id);
     if (!removed) throw new AppError('Device not found', 404);
     await AuditLogModel.create({
-      userId: user?.id || 'system',
-      userEmail: user?.email || 'System',
+      ...auditActor(user),
       action: 'device.delete',
       entityType: 'devices',
       entityId: id,
@@ -57,8 +55,7 @@ export const DeviceService = {
   async assign(data, user, meta = {}) {
     const assignment = await DeviceModel.assign(data);
     await AuditLogModel.create({
-      userId: user?.id || 'system',
-      userEmail: user?.email || 'System',
+      ...auditActor(user),
       action: 'device.assign',
       entityType: 'device_assignments',
       entityId: assignment.id,
@@ -72,8 +69,7 @@ export const DeviceService = {
     const assignment = await DeviceModel.returnAssignment(id);
     if (!assignment) throw new AppError('Active assignment not found', 404);
     await AuditLogModel.create({
-      userId: user?.id || 'system',
-      userEmail: user?.email || 'System',
+      ...auditActor(user),
       action: 'device.return',
       entityType: 'device_assignments',
       entityId: id,
