@@ -18,13 +18,6 @@ type ImportRow = {
   duplicateKey?: string;
 };
 
-type DeleteIntent = {
-  title: string;
-  detail: string;
-  phrase: string;
-  ids: string[];
-};
-
 type DuplicateGroupInfo = {
   key: string;
   importBatchId: string;
@@ -35,6 +28,13 @@ type DuplicateGroupInfo = {
 type AccountOption = {
   id: string;
   name: string;
+};
+
+type DeleteIntent = {
+  title: string;
+  detail: string;
+  phrase: string;
+  ids: string[];
 };
 
 const siteOptions = ['HQ', 'Candelaria', 'WFH', 'Hybrid'];
@@ -70,17 +70,6 @@ function completenessForData(data: Record<string, any> = {}) {
 
 function completeness(row: ImportRow) {
   return completenessForData(row.normalizedData);
-}
-
-function mergedData(rows: ImportRow[]) {
-  return rows.reduce<Record<string, any>>((record, row) => {
-    fieldLabels.forEach(([key]) => {
-      if ((record[key] === undefined || record[key] === null || record[key] === '') && row.normalizedData?.[key]) {
-        record[key] = row.normalizedData[key];
-      }
-    });
-    return record;
-  }, {});
 }
 
 function issueText(row: ImportRow) {
@@ -125,17 +114,11 @@ export default function EmployeeImportReview() {
   const [isImporting, setIsImporting] = useState(false);
   const [isSavingRow, setIsSavingRow] = useState(false);
   const [isSavingMerge, setIsSavingMerge] = useState(false);
+  const [isDeletingRows, setIsDeletingRows] = useState(false);
   const [editingRow, setEditingRow] = useState<ImportRow | null>(null);
   const [mergeGroup, setMergeGroup] = useState<DuplicateGroupInfo | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ImportRow | null>(null);
-  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'issues' | 'duplicates' | null>(null);
-  const [bulkDeleteCountdown, setBulkDeleteCountdown] = useState(10);
-  const [editForm, setEditForm] = useState<Record<string, any>>({});
-  const [mergeGroup, setMergeGroup] = useState<{ importBatchId: string; duplicateKey: string; rows: ImportRow[] } | null>(null);
-  const [mergeForm, setMergeForm] = useState<Record<string, any>>({});
-  const [isSavingMerge, setIsSavingMerge] = useState(false);
   const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null);
-  const [isDeletingRows, setIsDeletingRows] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [mergeForm, setMergeForm] = useState<Record<string, any>>({});
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [focusedBatchId, setFocusedBatchId] = useState('');
@@ -157,8 +140,7 @@ export default function EmployeeImportReview() {
         }
       }
 
-      const nextRows = Array.isArray(result.rows) ? result.rows : [];
-      setRows(nextRows);
+      setRows(Array.isArray(result.rows) ? result.rows : []);
     } catch (error: any) {
       toast.error(error.message || 'Unable to load import review');
     } finally {
@@ -169,17 +151,6 @@ export default function EmployeeImportReview() {
   useEffect(() => {
     loadRows();
   }, [batchId, focusedBatchId]);
-
-  useEffect(() => {
-    if (!bulkDeleteTarget) return;
-
-    setBulkDeleteCountdown(10);
-    const intervalId = window.setInterval(() => {
-      setBulkDeleteCountdown((current) => Math.max(current - 1, 0));
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, [bulkDeleteTarget]);
 
   useEffect(() => {
     let isMounted = true;
@@ -212,6 +183,7 @@ export default function EmployeeImportReview() {
         const key = `${row.importBatchId}:${row.duplicateKey}`;
         groups.set(key, [...(groups.get(key) || []), row]);
       });
+
     return [...groups.entries()].map(([key, items]): DuplicateGroupInfo => ({
       key,
       importBatchId: items[0].importBatchId,
@@ -243,7 +215,6 @@ export default function EmployeeImportReview() {
       setIsDeletingRows(false);
     }
   };
-  const currentBatchId = batchId || focusedBatchId || rows[0]?.importBatchId || '';
 
   const importReady = async () => {
     const targetBatchId = batchId || rows[0]?.importBatchId;
@@ -270,10 +241,6 @@ export default function EmployeeImportReview() {
   ) => {
     try {
       const result = await employeeImportService.resolveDuplicate({ importBatchId, duplicateKey, action, keepRowId, normalizedData });
-    mergedData?: Record<string, any>
-  ) => {
-    try {
-      const result = await employeeImportService.resolveDuplicate({ importBatchId, duplicateKey, action, keepRowId, mergedData });
       const refreshed = await employeeImportService.list({ importBatchId });
       const keptRow = Array.isArray(result.rows)
         ? result.rows.find((row: ImportRow) => row.status === 'ready' || row.status === 'issue')
@@ -285,35 +252,12 @@ export default function EmployeeImportReview() {
       if (keptRow?.status === 'ready') {
         toast.success(`${action === 'merge' ? 'Merged row' : 'Selected row'} moved to Ready. Click Import Ready Records to add it to Employee Records.`);
       } else {
-        const reason = keptRow?.issues?.map((issue) => issue.message).join(', ') || 'remaining issues';
+        const reason = keptRow?.issues?.map((issue: any) => issue.message).join(', ') || 'remaining issues';
         toast.success(`${action === 'merge' ? 'Merged row' : 'Selected row'} still needs review: ${reason}`);
       }
-
     } catch (error: any) {
       toast.error(error.message || 'Unable to resolve duplicate');
       throw error;
-    }
-  };
-
-  const openMergeModal = (group: { importBatchId: string; duplicateKey: string; rows: ImportRow[] }) => {
-    setMergeGroup(group);
-    setMergeForm(mergedData(group.rows));
-  };
-
-  const updateMergeForm = (field: string, value: string | boolean) => {
-    setMergeForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const saveMergedRecord = async () => {
-    if (!mergeGroup) return;
-
-    setIsSavingMerge(true);
-    try {
-      await resolveDuplicate(mergeGroup.importBatchId, mergeGroup.duplicateKey, 'merge', undefined, mergeForm);
-      setMergeGroup(null);
-      setMergeForm({});
-    } finally {
-      setIsSavingMerge(false);
     }
   };
 
@@ -364,36 +308,6 @@ export default function EmployeeImportReview() {
       toast.error(error.message || 'Unable to save import row');
     } finally {
       setIsSavingRow(false);
-    }
-  };
-
-  const deleteRow = async () => {
-    if (!deleteTarget) return;
-
-    try {
-      const result = await employeeImportService.deleteRow(deleteTarget.id);
-      const importBatchId = result.importBatchId || deleteTarget.importBatchId;
-      const refreshed = await employeeImportService.list({ importBatchId });
-      setFocusedBatchId(importBatchId);
-      setRows(Array.isArray(refreshed.rows) ? refreshed.rows : []);
-      setDeleteTarget(null);
-      toast.success('Import row deleted');
-    } catch (error: any) {
-      toast.error(error.message || 'Unable to delete import row');
-    }
-  };
-
-  const deleteBulkRows = async () => {
-    if (!bulkDeleteTarget || !currentBatchId || bulkDeleteCountdown > 0) return;
-
-    try {
-      const result = await employeeImportService.deleteMany({ importBatchId: currentBatchId, type: bulkDeleteTarget });
-      const refreshed = await employeeImportService.list({ importBatchId: currentBatchId });
-      setRows(Array.isArray(refreshed.rows) ? refreshed.rows : []);
-      toast.success(`${result.deleted || 0} import row${result.deleted === 1 ? '' : 's'} deleted`);
-      setBulkDeleteTarget(null);
-    } catch (error: any) {
-      toast.error(error.message || 'Unable to delete import rows');
     }
   };
 
@@ -491,18 +405,10 @@ export default function EmployeeImportReview() {
                         phrase: 'DELETE DUPLICATES',
                         ids,
                       })}
-                      onMerge={openMergeModal}
                     />
                   ))
                 ) : (
                   <EmptyState title="No duplicate issues" detail="Duplicate employee IDs will appear here after staging." />
-                )}
-                {duplicateGroups.length > 0 && (
-                  <BulkDeleteBar
-                    label="Delete All Duplicates"
-                    detail="Deletes all unresolved duplicate rows in this import batch."
-                    onClick={() => setBulkDeleteTarget('duplicates')}
-                  />
                 )}
               </div>
             )}
@@ -522,20 +428,6 @@ export default function EmployeeImportReview() {
                   />
                 ) : (
                   <EmptyState title="No non-duplicate issues" detail="Blank IDs, missing required fields, and database errors appear here." />
-              <div className="space-y-5">
-                <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-                  {visibleIssueRows.length ? (
-                    <IssueTable rows={visibleIssueRows} onEdit={openEditor} onDelete={setDeleteTarget} />
-                  ) : (
-                    <EmptyState title="No non-duplicate issues" detail="Blank IDs, missing required fields, and database errors appear here." />
-                  )}
-                </div>
-                {visibleIssueRows.length > 0 && (
-                  <BulkDeleteBar
-                    label="Delete All Issues"
-                    detail="Deletes all unresolved non-duplicate issue rows in this import batch."
-                    onClick={() => setBulkDeleteTarget('issues')}
-                  />
                 )}
               </div>
             )}
@@ -554,7 +446,6 @@ export default function EmployeeImportReview() {
                       ids: [row.id],
                     })}
                   />
-                  <IssueTable rows={readyRows} ready onEdit={openEditor} onDelete={setDeleteTarget} />
                 ) : (
                   <EmptyState title="No ready rows" detail="Resolve issues to move rows into the ready list." />
                 )}
@@ -581,9 +472,6 @@ export default function EmployeeImportReview() {
       )}
 
       {mergeGroup && (
-        <MergeDuplicateModal
-          group={mergeGroup}
-          form={mergeForm}
         <MergeRowsModal
           group={mergeGroup}
           form={mergeForm}
@@ -595,7 +483,7 @@ export default function EmployeeImportReview() {
             setMergeGroup(null);
             setMergeForm({});
           }}
-          onSave={saveMergedRecord}
+          onSave={saveMergedRow}
         />
       )}
 
@@ -607,28 +495,6 @@ export default function EmployeeImportReview() {
             if (!isDeletingRows) setDeleteIntent(null);
           }}
           onConfirm={deleteRows}
-          onSave={saveMergedRow}
-        />
-      )}
-
-      {deleteTarget && (
-        <ConfirmDeleteModal
-          title="Delete Import Row"
-          detail={`Delete spreadsheet row ${deleteTarget.sourceRow}? This removes it from import review only.`}
-          confirmLabel="Delete Row"
-          onClose={() => setDeleteTarget(null)}
-          onConfirm={deleteRow}
-        />
-      )}
-
-      {bulkDeleteTarget && (
-        <ConfirmDeleteModal
-          title={bulkDeleteTarget === 'duplicates' ? 'Delete All Duplicates' : 'Delete All Issues'}
-          detail={`This will delete all unresolved ${bulkDeleteTarget === 'duplicates' ? 'duplicate' : 'issue'} rows in this import batch. Confirm will unlock after 10 seconds.`}
-          confirmLabel={bulkDeleteCountdown > 0 ? `Confirm in ${bulkDeleteCountdown}s` : 'Delete All'}
-          disabled={bulkDeleteCountdown > 0}
-          onClose={() => setBulkDeleteTarget(null)}
-          onConfirm={deleteBulkRows}
         />
       )}
     </PageLayout>
@@ -694,7 +560,6 @@ function DuplicateGroup({
   onResolve: (importBatchId: string, duplicateKey: string, action: 'keep' | 'merge', keepRowId?: string) => void;
   onMerge: () => void;
   onDelete: (ids: string[], label: string) => void;
-  onMerge: (group: DuplicateGroupInfo) => void;
 }) {
   const maxCompleteness = Math.max(...rows.map(completeness));
   const moreCompleteRows = rows.filter((row) => completeness(row) === maxCompleteness);
@@ -724,14 +589,6 @@ function DuplicateGroup({
             Merge
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onMerge({ key: `${importBatchId}:${groupKey}`, importBatchId, duplicateKey: groupKey, rows })}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-black text-[#4B5563] transition-all hover:text-[#111827]"
-        >
-          <Merge className="h-4 w-4" />
-          Merge
-        </button>
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {rows.map((row) => {
@@ -786,6 +643,7 @@ function MergeRowsModal({
 }) {
   const leftRow = group.rows[0];
   const rightRow = group.rows[1] || group.rows[0];
+  const mergedCompleteness = completenessForData(form);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
@@ -813,6 +671,9 @@ function MergeRowsModal({
             <div className="mb-4">
               <p className="text-sm font-black text-[#111827]">Final Merged Record</p>
               <p className="mt-1 text-xs font-bold text-[#6B7280]">Edit these values before saving the merge.</p>
+              <p className="mt-1 text-xs font-black text-[#6B7280]">
+                Merged result: {mergedCompleteness}/{fieldLabels.length} fields filled
+              </p>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <EditorInput label="ID" value={form.employeeNumber || ''} onChange={(value) => onChange('employeeNumber', value)} required />
@@ -1048,185 +909,6 @@ function ConfirmDeleteModal({
           </button>
         </div>
       </div>
-function BulkDeleteBar({ label, detail, onClick }: { label: string; detail: string; onClick: () => void }) {
-  return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p className="text-sm font-black text-red-700">{label}</p>
-        <p className="mt-1 text-xs font-bold text-red-600">{detail}</p>
-      </div>
-      <button
-        type="button"
-        onClick={onClick}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white transition-all hover:bg-red-700"
-      >
-        <Trash2 className="h-4 w-4" />
-        {label}
-      </button>
-    </div>
-  );
-}
-
-function MergeDuplicateModal({
-  group,
-  form,
-  isSaving,
-  onChange,
-  onClose,
-  onSave,
-}: {
-  group: { importBatchId: string; duplicateKey: string; rows: ImportRow[] };
-  form: Record<string, any>;
-  isSaving: boolean;
-  onChange: (field: string, value: string | boolean) => void;
-  onClose: () => void;
-  onSave: () => void;
-}) {
-  const mergedCompleteness = completenessForData(form);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 backdrop-blur-sm">
-      <div className="flex h-[94vh] w-[96vw] max-w-7xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] px-6 py-4">
-          <div>
-            <h2 className="text-lg font-black text-[#111827]">Merge Duplicate ID {group.duplicateKey}</h2>
-            <p className="mt-1 text-xs font-bold text-[#6B7280]">Compare the duplicate rows and manually choose the final values in the middle.</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="rounded-xl p-2 text-[#9CA3AF] transition-all hover:bg-[#F3F4F6] hover:text-[#111827]"
-          >
-            <XCircle className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto bg-[#F9FAFB] p-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,1.15fr)_minmax(0,1fr)]">
-          <CompareColumn row={group.rows[0]} />
-
-          <div className="rounded-2xl border border-[#111827] bg-white p-4 shadow-sm">
-            <div className="mb-4">
-              <p className="text-sm font-black text-[#111827]">Final Merged Record</p>
-              <p className="mt-1 text-xs font-bold text-[#6B7280]">Edit these values before saving the merge.</p>
-              <p className="mt-1 text-xs font-black text-[#6B7280]">
-                Merged result: {mergedCompleteness}/{fieldLabels.length} fields filled
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <EditorInput label="ID" value={form.employeeNumber || ''} onChange={(value) => onChange('employeeNumber', value)} required />
-              <EditorInput label="Name" value={form.fullName || ''} onChange={(value) => onChange('fullName', value)} required />
-              <EditorInput label="Account" value={form.accountAssignment || ''} onChange={(value) => onChange('accountAssignment', value)} required />
-              <EditorInput label="Bigoutsource Email" value={form.boEmail || ''} onChange={(value) => onChange('boEmail', value)} required />
-              <EditorInput label="Site" value={form.siteName || ''} onChange={(value) => onChange('siteName', value)} required />
-              <EditorSelect label="Status" value={form.status || 'active'} onChange={(value) => onChange('status', value)}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </EditorSelect>
-              <EditorInput label="Phone" value={form.phone || ''} onChange={(value) => onChange('phone', value)} />
-              <EditorInput label="Address" value={form.address || ''} onChange={(value) => onChange('address', value)} />
-              <EditorInput label="Email Password" value={form.emailPassword || ''} onChange={(value) => onChange('emailPassword', value)} />
-              <EditorInput label="LMS Account" value={form.lmsAccount || ''} onChange={(value) => onChange('lmsAccount', value)} />
-              <EditorInput label="PC Name" value={form.pcName || ''} onChange={(value) => onChange('pcName', value)} />
-              <EditorInput label="RustDesk ID" value={form.rustdeskId || ''} onChange={(value) => onChange('rustdeskId', value)} />
-              <EditorInput label="Remote ID" value={form.remoteId || ''} onChange={(value) => onChange('remoteId', value)} />
-              <EditorSelect label="ESET" value={form.esetStatus || 'inactive'} onChange={(value) => onChange('esetStatus', value)}>
-                <option value="inactive">Inactive</option>
-                <option value="active">Active</option>
-              </EditorSelect>
-              <EditorInput label="BIOS Date" type="date" value={form.biosDate || ''} onChange={(value) => onChange('biosDate', value)} />
-              <EditorSelect label="ActivityWatch" value={form.activityWatchStatus || 'missing'} onChange={(value) => onChange('activityWatchStatus', value)}>
-                <option value="missing">Missing</option>
-                <option value="installed">Installed</option>
-              </EditorSelect>
-              <EditorInput label="Windows Key" value={form.windowsKey || ''} onChange={(value) => onChange('windowsKey', value)} />
-              <label className="flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={Boolean(form.is_archived)}
-                  onChange={(event) => onChange('is_archived', event.target.checked)}
-                  className="h-4 w-4 accent-[#111827]"
-                />
-                <span className="text-xs font-black uppercase tracking-widest text-[#4B5563]">Archived</span>
-              </label>
-            </div>
-          </div>
-
-          <CompareColumn row={group.rows[1] || group.rows[0]} />
-        </div>
-
-        <div className="flex justify-end gap-3 border-t border-[#E5E7EB] bg-white px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-function ConfirmDeleteModal({
-  title,
-  detail,
-  confirmLabel,
-  disabled = false,
-  onClose,
-  onConfirm,
-}: {
-  title: string;
-  detail: string;
-  confirmLabel: string;
-  disabled?: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#111827]/55 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-2xl">
-        <div className="flex items-start gap-4">
-          <div className="rounded-2xl bg-red-50 p-3 text-red-600">
-            <Trash2 className="h-6 w-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-black text-[#111827]">{title}</h2>
-            <p className="mt-2 text-sm font-bold leading-relaxed text-[#6B7280]">{detail}</p>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:text-[#111827]"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-black text-white transition-all hover:bg-[#374151] disabled:opacity-60"
-          >
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-            Save Merged Record
-            onClick={onConfirm}
-            disabled={disabled}
-            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
-          >
-            <Trash2 className="h-4 w-4" />
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CompareColumn({ row }: { row: ImportRow }) {
-  const score = completeness(row);
-
-  return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
-      <div className="mb-4">
-        <p className="text-sm font-black text-[#111827]">Row {row.sourceRow}</p>
-        <p className="mt-1 text-xs font-black text-[#6B7280]">{score}/{fieldLabels.length} fields filled</p>
-      </div>
-      <FieldGrid row={row} />
     </div>
   );
 }
@@ -1335,6 +1017,20 @@ function EditRowModal({
   );
 }
 
+function AccountOptions({ value, accounts }: { value: string; accounts: AccountOption[] }) {
+  return (
+    <>
+      <option value="">Select account</option>
+      {value && !accounts.some((account) => account.name === value) && <option value={value}>{value}</option>}
+      {accounts.map((account) => (
+        <option key={account.id} value={account.name}>
+          {account.name}
+        </option>
+      ))}
+    </>
+  );
+}
+
 function EditorInput({
   label,
   value,
@@ -1389,22 +1085,6 @@ function EditorSelect({
         {children}
       </select>
     </label>
-  );
-}
-
-function AccountOptions({ value, accounts }: { value: string; accounts: AccountOption[] }) {
-  const hasCurrentValue = value && accounts.some((account) => account.name === value);
-
-  return (
-    <>
-      <option value="">Select account</option>
-      {value && !hasCurrentValue && <option value={value}>{value}</option>}
-      {accounts.map((account) => (
-        <option key={account.id} value={account.name}>
-          {account.name}
-        </option>
-      ))}
-    </>
   );
 }
 
