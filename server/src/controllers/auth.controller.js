@@ -1,7 +1,17 @@
 import { AuthService } from '../services/auth.service.js';
+import { AccountService } from '../services/account.service.js';
 import { success } from '../utils/apiResponse.js';
 
 export const AuthController = {
+  async internalDepartments(req, res, next) {
+    try {
+      const accounts = await AccountService.list({ type: 'internal' });
+      return success(res, accounts.map((account) => account.name).filter(Boolean));
+    } catch (error) {
+      return next(error);
+    }
+  },
+
   async register(req, res, next) {
     try {
       const data = await AuthService.register(req.body, { ipAddress: req.ip });

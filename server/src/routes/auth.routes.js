@@ -17,6 +17,7 @@ const loginLimiter = rateLimit({
 
 router.post('/register', validate(registerValidator), AuthController.register);
 router.post('/login', loginLimiter, validate(loginValidator), AuthController.login);
+router.get('/internal-departments', AuthController.internalDepartments);
 router.get('/me', authenticate, AuthController.me);
 router.post('/logout', authenticate, AuthController.logout);
 router.put('/password', authenticate, validate(changePasswordValidator), AuthController.changePassword);

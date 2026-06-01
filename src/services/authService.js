@@ -1,6 +1,10 @@
 import { apiRequest, clearAuthToken, setAuthToken } from './api';
 
 export const authService = {
+  internalDepartments() {
+    return apiRequest('/auth/internal-departments');
+  },
+
   async login(email, password) {
     const data = await apiRequest('/auth/login', {
       method: 'POST',
