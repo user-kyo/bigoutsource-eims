@@ -11,6 +11,8 @@ router.post('/stage', requireRole(importManagers), EmployeeImportController.stag
 router.post('/duplicates/resolve', requireRole(importManagers), EmployeeImportController.resolveDuplicate);
 router.delete('/rows', requireRole(importManagers), EmployeeImportController.deleteRows);
 router.put('/rows/:id', requireRole(importManagers), EmployeeImportController.updateRow);
+router.delete('/rows/:id', requireRole(importManagers), EmployeeImportController.deleteRow);
+router.post('/delete-many', requireRole(importManagers), EmployeeImportController.deleteMany);
 router.post('/:importBatchId/import-ready', requireRole(importManagers), EmployeeImportController.importReady);
 
 export default router;
