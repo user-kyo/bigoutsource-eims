@@ -1,5 +1,10 @@
-import { Bell } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Bell, Loader2, ShieldAlert, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { settingsService } from '@/src/services/settingsService';
+import { userService } from '@/src/services/userService';
+import { AppUser } from '@/src/types';
 
 export function Header({ title }: { title: string }) {
   const { user } = useAuth();
@@ -19,10 +24,7 @@ export function Header({ title }: { title: string }) {
         
         
         <div className="flex items-center gap-4">
-          <button className="relative p-2 text-[#4B5563] hover:bg-[#F3F4F6] rounded-full transition-colors">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-[#EF4444] rounded-full border-2 border-white"></span>
-          </button>
+          <NotificationBell />
           
           <div className="flex items-center gap-3 pl-4 border-l border-[#E5E7EB]">
             <div className="text-right">
@@ -36,5 +38,153 @@ export function Header({ title }: { title: string }) {
         </div>
       </div>
     </header>
+  );
+}
+
+function NotificationBell() {
+  const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [notifyRegistrationAttempts, setNotifyRegistrationAttempts] = useState(false);
+  const [users, setUsers] = useState<AppUser[]>([]);
+
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  const pendingUsers = useMemo(
+    () => users.filter((account) => account.status === 'pending'),
+    [users]
+  );
+
+  const unreadCount = isSuperAdmin && notifyRegistrationAttempts ? pendingUsers.length : 0;
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setNotifyRegistrationAttempts(false);
+      setUsers([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadNotifications() {
+      setIsLoading(true);
+
+      try {
+        const [settings, accountList] = await Promise.all([settingsService.get(), userService.list()]);
+        if (!isMounted) return;
+
+        setNotifyRegistrationAttempts(Boolean(settings.notifyRegistrationAttempts));
+        setUsers(Array.isArray(accountList) ? accountList : []);
+      } catch (error) {
+        if (!isMounted) return;
+
+        setNotifyRegistrationAttempts(false);
+        setUsers([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    loadNotifications();
+    const intervalId = window.setInterval(loadNotifications, 60000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [isSuperAdmin]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="relative rounded-full p-2 text-[#4B5563] transition-colors hover:bg-[#F3F4F6] hover:text-[#111827]"
+        aria-label="Open notifications"
+      >
+        <Bell className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-[#EF4444] px-1 text-[10px] font-black text-white">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end bg-[#111827]/30 px-4 py-20 backdrop-blur-sm sm:px-8">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] px-5 py-4">
+              <div>
+                <h2 className="text-base font-black text-[#111827]">Notifications</h2>
+                <p className="mt-1 text-xs font-bold text-[#6B7280]">
+                  {unreadCount > 0 ? `${unreadCount} pending item${unreadCount === 1 ? '' : 's'}` : 'No pending alerts'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-xl p-2 text-[#9CA3AF] transition-colors hover:bg-[#F3F4F6] hover:text-[#111827]"
+                aria-label="Close notifications"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[28rem] overflow-y-auto p-4">
+              {isLoading ? (
+                <div className="flex h-32 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
+                </div>
+              ) : !isSuperAdmin ? (
+                <NotificationEmptyState message="Notifications for account requests are available to Super Admin users." />
+              ) : !notifyRegistrationAttempts ? (
+                <NotificationEmptyState message="Registration attempt notifications are turned off in Settings." />
+              ) : pendingUsers.length > 0 ? (
+                <div className="space-y-3">
+                  {pendingUsers.map((account) => (
+                    <div key={account.uid} className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="rounded-xl bg-white p-2 text-amber-700">
+                          <ShieldAlert className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-[#111827]">Account request pending</p>
+                          <p className="mt-1 truncate text-xs font-bold text-[#6B7280]">{account.fullName || account.email}</p>
+                          <p className="mt-0.5 truncate text-[11px] font-bold text-[#9CA3AF]">{account.email}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <NotificationEmptyState message="No account requests are waiting for approval." />
+              )}
+            </div>
+
+            {isSuperAdmin && notifyRegistrationAttempts && pendingUsers.length > 0 && (
+              <div className="border-t border-[#E5E7EB] bg-[#F9FAFB] px-5 py-4">
+                <Link
+                  to="/users"
+                  onClick={() => setIsOpen(false)}
+                  className="flex w-full items-center justify-center rounded-xl bg-[#111827] px-4 py-3 text-sm font-black text-white transition-colors hover:bg-[#374151]"
+                >
+                  Review Requests
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function NotificationEmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex h-40 flex-col items-center justify-center rounded-xl border border-dashed border-[#E5E7EB] px-6 text-center">
+      <Bell className="h-7 w-7 text-[#D1D5DB]" />
+      <p className="mt-3 text-sm font-black text-[#111827]">All clear</p>
+      <p className="mt-1 text-xs font-bold text-[#6B7280]">{message}</p>
+    </div>
   );
 }
