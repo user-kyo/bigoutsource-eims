@@ -18,6 +18,13 @@ type ImportRow = {
   duplicateKey?: string;
 };
 
+type DeleteIntent = {
+  title: string;
+  detail: string;
+  phrase: string;
+  ids: string[];
+};
+
 type DuplicateGroupInfo = {
   key: string;
   importBatchId: string;
@@ -53,12 +60,27 @@ const fieldLabels: Array<[string, string]> = [
   ['is_archived', 'Archived'],
 ];
 
-function completeness(row: ImportRow) {
+function completenessForData(data: Record<string, any> = {}) {
   return fieldLabels.reduce((count, [key]) => {
-    const value = row.normalizedData?.[key];
+    const value = data?.[key];
     if (typeof value === 'boolean') return count + 1;
     return value ? count + 1 : count;
   }, 0);
+}
+
+function completeness(row: ImportRow) {
+  return completenessForData(row.normalizedData);
+}
+
+function mergedData(rows: ImportRow[]) {
+  return rows.reduce<Record<string, any>>((record, row) => {
+    fieldLabels.forEach(([key]) => {
+      if ((record[key] === undefined || record[key] === null || record[key] === '') && row.normalizedData?.[key]) {
+        record[key] = row.normalizedData[key];
+      }
+    });
+    return record;
+  }, {});
 }
 
 function issueText(row: ImportRow) {
@@ -109,6 +131,11 @@ export default function EmployeeImportReview() {
   const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'issues' | 'duplicates' | null>(null);
   const [bulkDeleteCountdown, setBulkDeleteCountdown] = useState(10);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
+  const [mergeGroup, setMergeGroup] = useState<{ importBatchId: string; duplicateKey: string; rows: ImportRow[] } | null>(null);
+  const [mergeForm, setMergeForm] = useState<Record<string, any>>({});
+  const [isSavingMerge, setIsSavingMerge] = useState(false);
+  const [deleteIntent, setDeleteIntent] = useState<DeleteIntent | null>(null);
+  const [isDeletingRows, setIsDeletingRows] = useState(false);
   const [mergeForm, setMergeForm] = useState<Record<string, any>>({});
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [focusedBatchId, setFocusedBatchId] = useState('');
@@ -194,6 +221,28 @@ export default function EmployeeImportReview() {
   }, [rows]);
 
   const visibleIssueRows = issueRows.filter((row) => !row.duplicateKey);
+  const duplicateRows = duplicateGroups.flatMap((group) => group.rows);
+
+  const requestDeleteRows = (intent: DeleteIntent) => {
+    if (!intent.ids.length) return;
+    setDeleteIntent(intent);
+  };
+
+  const deleteRows = async () => {
+    if (!deleteIntent) return;
+
+    setIsDeletingRows(true);
+    try {
+      const result = await employeeImportService.deleteRows(deleteIntent.ids);
+      toast.success(`${result.deleted || 0} staging record${result.deleted === 1 ? '' : 's'} deleted`);
+      setDeleteIntent(null);
+      await loadRows();
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to delete staging records');
+    } finally {
+      setIsDeletingRows(false);
+    }
+  };
   const currentBatchId = batchId || focusedBatchId || rows[0]?.importBatchId || '';
 
   const importReady = async () => {
@@ -217,6 +266,10 @@ export default function EmployeeImportReview() {
     duplicateKey: string,
     action: 'keep' | 'merge',
     keepRowId?: string,
+    normalizedData?: Record<string, any>
+  ) => {
+    try {
+      const result = await employeeImportService.resolveDuplicate({ importBatchId, duplicateKey, action, keepRowId, normalizedData });
     mergedData?: Record<string, any>
   ) => {
     try {
@@ -239,6 +292,28 @@ export default function EmployeeImportReview() {
     } catch (error: any) {
       toast.error(error.message || 'Unable to resolve duplicate');
       throw error;
+    }
+  };
+
+  const openMergeModal = (group: { importBatchId: string; duplicateKey: string; rows: ImportRow[] }) => {
+    setMergeGroup(group);
+    setMergeForm(mergedData(group.rows));
+  };
+
+  const updateMergeForm = (field: string, value: string | boolean) => {
+    setMergeForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const saveMergedRecord = async () => {
+    if (!mergeGroup) return;
+
+    setIsSavingMerge(true);
+    try {
+      await resolveDuplicate(mergeGroup.importBatchId, mergeGroup.duplicateKey, 'merge', undefined, mergeForm);
+      setMergeGroup(null);
+      setMergeForm({});
+    } finally {
+      setIsSavingMerge(false);
     }
   };
 
@@ -341,15 +416,56 @@ export default function EmployeeImportReview() {
           <p className="max-w-xl text-xs font-bold leading-relaxed text-[#6B7280]">
             Keep and Merge only resolve staged rows. Nothing goes into Employee Records until you click Import Ready Records.
           </p>
-          <button
-            type="button"
-            onClick={importReady}
-            disabled={!readyRows.length || isImporting}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[#11182720] transition-all hover:bg-[#374151] disabled:cursor-not-allowed disabled:bg-[#D1D5DB]"
-          >
-            {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-            Import Ready Records
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {activeView === 'issues' && (
+              <BulkDeleteButton
+                disabled={!visibleIssueRows.length}
+                onClick={() => requestDeleteRows({
+                  title: 'Delete All Issue Records',
+                  detail: `This will permanently delete ${visibleIssueRows.length} non-duplicate issue staging record${visibleIssueRows.length === 1 ? '' : 's'} from the database.`,
+                  phrase: 'DELETE ISSUE RECORDS',
+                  ids: visibleIssueRows.map((row) => row.id),
+                })}
+              >
+                Delete All Issues
+              </BulkDeleteButton>
+            )}
+            {activeView === 'duplicates' && (
+              <BulkDeleteButton
+                disabled={!duplicateRows.length}
+                onClick={() => requestDeleteRows({
+                  title: 'Delete All Duplicate Records',
+                  detail: `This will permanently delete ${duplicateRows.length} duplicate staging record${duplicateRows.length === 1 ? '' : 's'} from the database.`,
+                  phrase: 'DELETE DUPLICATE RECORDS',
+                  ids: duplicateRows.map((row) => row.id),
+                })}
+              >
+                Delete All Duplicates
+              </BulkDeleteButton>
+            )}
+            {activeView === 'ready' && (
+              <BulkDeleteButton
+                disabled={!readyRows.length}
+                onClick={() => requestDeleteRows({
+                  title: 'Delete All Ready Records',
+                  detail: `This will permanently delete ${readyRows.length} ready-to-import staging record${readyRows.length === 1 ? '' : 's'} from the database.`,
+                  phrase: 'DELETE READY RECORDS',
+                  ids: readyRows.map((row) => row.id),
+                })}
+              >
+                Delete All Ready
+              </BulkDeleteButton>
+            )}
+            <button
+              type="button"
+              onClick={importReady}
+              disabled={!readyRows.length || isImporting}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[#11182720] transition-all hover:bg-[#374151] disabled:cursor-not-allowed disabled:bg-[#D1D5DB]"
+            >
+              {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+              Import Ready Records
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -368,6 +484,13 @@ export default function EmployeeImportReview() {
                       groupKey={group.duplicateKey}
                       rows={group.rows}
                       onResolve={resolveDuplicate}
+                      onMerge={() => openMergeModal(group)}
+                      onDelete={(ids, label) => requestDeleteRows({
+                        title: 'Delete Duplicate Records',
+                        detail: `This will permanently delete ${ids.length} duplicate staging record${ids.length === 1 ? '' : 's'} for ${label} from the database.`,
+                        phrase: 'DELETE DUPLICATES',
+                        ids,
+                      })}
                       onMerge={openMergeModal}
                     />
                   ))
@@ -385,6 +508,20 @@ export default function EmployeeImportReview() {
             )}
 
             {activeView === 'issues' && (
+              <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
+                {visibleIssueRows.length ? (
+                  <IssueTable
+                    rows={visibleIssueRows}
+                    onEdit={openEditor}
+                    onDelete={(row) => requestDeleteRows({
+                      title: 'Delete Import Staging Record',
+                      detail: `This will permanently delete staging row ${row.sourceRow} from the database.`,
+                      phrase: 'DELETE IMPORT ROW',
+                      ids: [row.id],
+                    })}
+                  />
+                ) : (
+                  <EmptyState title="No non-duplicate issues" detail="Blank IDs, missing required fields, and database errors appear here." />
               <div className="space-y-5">
                 <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
                   {visibleIssueRows.length ? (
@@ -406,6 +543,17 @@ export default function EmployeeImportReview() {
             {activeView === 'ready' && (
               <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
                 {readyRows.length ? (
+                  <IssueTable
+                    rows={readyRows}
+                    ready
+                    onEdit={openEditor}
+                    onDelete={(row) => requestDeleteRows({
+                      title: 'Delete Ready Import Record',
+                      detail: `This will permanently delete ready staging row ${row.sourceRow} from the database.`,
+                      phrase: 'DELETE IMPORT ROW',
+                      ids: [row.id],
+                    })}
+                  />
                   <IssueTable rows={readyRows} ready onEdit={openEditor} onDelete={setDeleteTarget} />
                 ) : (
                   <EmptyState title="No ready rows" detail="Resolve issues to move rows into the ready list." />
@@ -433,6 +581,9 @@ export default function EmployeeImportReview() {
       )}
 
       {mergeGroup && (
+        <MergeDuplicateModal
+          group={mergeGroup}
+          form={mergeForm}
         <MergeRowsModal
           group={mergeGroup}
           form={mergeForm}
@@ -444,6 +595,18 @@ export default function EmployeeImportReview() {
             setMergeGroup(null);
             setMergeForm({});
           }}
+          onSave={saveMergedRecord}
+        />
+      )}
+
+      {deleteIntent && (
+        <ConfirmDeleteModal
+          intent={deleteIntent}
+          isDeleting={isDeletingRows}
+          onClose={() => {
+            if (!isDeletingRows) setDeleteIntent(null);
+          }}
+          onConfirm={deleteRows}
           onSave={saveMergedRow}
         />
       )}
@@ -469,6 +632,20 @@ export default function EmployeeImportReview() {
         />
       )}
     </PageLayout>
+  );
+}
+
+function BulkDeleteButton({ children, disabled, onClick }: { children: ReactNode; disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-black text-red-600 transition-all hover:bg-red-50 disabled:cursor-not-allowed disabled:border-[#E5E7EB] disabled:text-[#D1D5DB]"
+    >
+      <Trash2 className="h-4 w-4" />
+      {children}
+    </button>
   );
 }
 
@@ -509,11 +686,14 @@ function DuplicateGroup({
   rows,
   onResolve,
   onMerge,
+  onDelete,
 }: {
   importBatchId: string;
   groupKey: string;
   rows: ImportRow[];
   onResolve: (importBatchId: string, duplicateKey: string, action: 'keep' | 'merge', keepRowId?: string) => void;
+  onMerge: () => void;
+  onDelete: (ids: string[], label: string) => void;
   onMerge: (group: DuplicateGroupInfo) => void;
 }) {
   const maxCompleteness = Math.max(...rows.map(completeness));
@@ -525,6 +705,24 @@ function DuplicateGroup({
         <div>
           <p className="text-sm font-black text-[#111827]">Duplicate ID: {groupKey}</p>
           <p className="mt-1 text-xs font-bold text-[#6B7280]">Compare rows side by side, keep one, or merge non-empty fields.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onDelete(rows.map((row) => row.id), groupKey)}
+            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-xs font-black text-red-600 transition-all hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Group
+          </button>
+          <button
+            type="button"
+            onClick={onMerge}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-black text-[#4B5563] transition-all hover:text-[#111827]"
+          >
+            <Merge className="h-4 w-4" />
+            Merge
+          </button>
         </div>
         <button
           type="button"
@@ -785,6 +983,71 @@ function IssueTable({
   );
 }
 
+function ConfirmDeleteModal({
+  intent,
+  isDeleting,
+  onClose,
+  onConfirm,
+}: {
+  intent: DeleteIntent;
+  isDeleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const [typedPhrase, setTypedPhrase] = useState('');
+  const canConfirm = typedPhrase === intent.phrase;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl border border-[#FECACA] bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-[#FEE2E2] px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-[#111827]">{intent.title}</h2>
+            <p className="mt-1 text-sm font-bold leading-relaxed text-[#6B7280]">{intent.detail}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="rounded-xl p-2 text-[#9CA3AF] transition-all hover:bg-[#F3F4F6] hover:text-[#111827]"
+          >
+            <XCircle className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <p className="text-xs font-bold text-[#4B5563]">
+            Type <span className="font-black text-red-600">{intent.phrase}</span> to confirm.
+          </p>
+          <input
+            value={typedPhrase}
+            onChange={(event) => setTypedPhrase(event.target.value)}
+            disabled={isDeleting}
+            autoFocus
+            className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm font-bold text-[#111827] outline-none transition-all focus:ring-2 focus:ring-red-500"
+          />
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-[#FEE2E2] bg-[#FFF7F7] px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:text-[#111827]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={!canConfirm || isDeleting}
+            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-black text-white transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-[#D1D5DB]"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete Records
+          </button>
+        </div>
+      </div>
 function BulkDeleteBar({ label, detail, onClick }: { label: string; detail: string; onClick: () => void }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 md:flex-row md:items-center md:justify-between">
@@ -804,6 +1067,99 @@ function BulkDeleteBar({ label, detail, onClick }: { label: string; detail: stri
   );
 }
 
+function MergeDuplicateModal({
+  group,
+  form,
+  isSaving,
+  onChange,
+  onClose,
+  onSave,
+}: {
+  group: { importBatchId: string; duplicateKey: string; rows: ImportRow[] };
+  form: Record<string, any>;
+  isSaving: boolean;
+  onChange: (field: string, value: string | boolean) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const mergedCompleteness = completenessForData(form);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 backdrop-blur-sm">
+      <div className="flex h-[94vh] w-[96vw] max-w-7xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] px-6 py-4">
+          <div>
+            <h2 className="text-lg font-black text-[#111827]">Merge Duplicate ID {group.duplicateKey}</h2>
+            <p className="mt-1 text-xs font-bold text-[#6B7280]">Compare the duplicate rows and manually choose the final values in the middle.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="rounded-xl p-2 text-[#9CA3AF] transition-all hover:bg-[#F3F4F6] hover:text-[#111827]"
+          >
+            <XCircle className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto bg-[#F9FAFB] p-6 xl:grid-cols-[minmax(0,1fr)_minmax(24rem,1.15fr)_minmax(0,1fr)]">
+          <CompareColumn row={group.rows[0]} />
+
+          <div className="rounded-2xl border border-[#111827] bg-white p-4 shadow-sm">
+            <div className="mb-4">
+              <p className="text-sm font-black text-[#111827]">Final Merged Record</p>
+              <p className="mt-1 text-xs font-bold text-[#6B7280]">Edit these values before saving the merge.</p>
+              <p className="mt-1 text-xs font-black text-[#6B7280]">
+                Merged result: {mergedCompleteness}/{fieldLabels.length} fields filled
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <EditorInput label="ID" value={form.employeeNumber || ''} onChange={(value) => onChange('employeeNumber', value)} required />
+              <EditorInput label="Name" value={form.fullName || ''} onChange={(value) => onChange('fullName', value)} required />
+              <EditorInput label="Account" value={form.accountAssignment || ''} onChange={(value) => onChange('accountAssignment', value)} required />
+              <EditorInput label="Bigoutsource Email" value={form.boEmail || ''} onChange={(value) => onChange('boEmail', value)} required />
+              <EditorInput label="Site" value={form.siteName || ''} onChange={(value) => onChange('siteName', value)} required />
+              <EditorSelect label="Status" value={form.status || 'active'} onChange={(value) => onChange('status', value)}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </EditorSelect>
+              <EditorInput label="Phone" value={form.phone || ''} onChange={(value) => onChange('phone', value)} />
+              <EditorInput label="Address" value={form.address || ''} onChange={(value) => onChange('address', value)} />
+              <EditorInput label="Email Password" value={form.emailPassword || ''} onChange={(value) => onChange('emailPassword', value)} />
+              <EditorInput label="LMS Account" value={form.lmsAccount || ''} onChange={(value) => onChange('lmsAccount', value)} />
+              <EditorInput label="PC Name" value={form.pcName || ''} onChange={(value) => onChange('pcName', value)} />
+              <EditorInput label="RustDesk ID" value={form.rustdeskId || ''} onChange={(value) => onChange('rustdeskId', value)} />
+              <EditorInput label="Remote ID" value={form.remoteId || ''} onChange={(value) => onChange('remoteId', value)} />
+              <EditorSelect label="ESET" value={form.esetStatus || 'inactive'} onChange={(value) => onChange('esetStatus', value)}>
+                <option value="inactive">Inactive</option>
+                <option value="active">Active</option>
+              </EditorSelect>
+              <EditorInput label="BIOS Date" type="date" value={form.biosDate || ''} onChange={(value) => onChange('biosDate', value)} />
+              <EditorSelect label="ActivityWatch" value={form.activityWatchStatus || 'missing'} onChange={(value) => onChange('activityWatchStatus', value)}>
+                <option value="missing">Missing</option>
+                <option value="installed">Installed</option>
+              </EditorSelect>
+              <EditorInput label="Windows Key" value={form.windowsKey || ''} onChange={(value) => onChange('windowsKey', value)} />
+              <label className="flex items-center gap-3 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.is_archived)}
+                  onChange={(event) => onChange('is_archived', event.target.checked)}
+                  className="h-4 w-4 accent-[#111827]"
+                />
+                <span className="text-xs font-black uppercase tracking-widest text-[#4B5563]">Archived</span>
+              </label>
+            </div>
+          </div>
+
+          <CompareColumn row={group.rows[1] || group.rows[0]} />
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-[#E5E7EB] bg-white px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
 function ConfirmDeleteModal({
   title,
   detail,
@@ -842,6 +1198,12 @@ function ConfirmDeleteModal({
           </button>
           <button
             type="button"
+            onClick={onSave}
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#111827] px-5 py-2.5 text-sm font-black text-white transition-all hover:bg-[#374151] disabled:opacity-60"
+          >
+            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save Merged Record
             onClick={onConfirm}
             disabled={disabled}
             className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-black text-white transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
@@ -851,6 +1213,20 @@ function ConfirmDeleteModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CompareColumn({ row }: { row: ImportRow }) {
+  const score = completeness(row);
+
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+      <div className="mb-4">
+        <p className="text-sm font-black text-[#111827]">Row {row.sourceRow}</p>
+        <p className="mt-1 text-xs font-black text-[#6B7280]">{score}/{fieldLabels.length} fields filled</p>
+      </div>
+      <FieldGrid row={row} />
     </div>
   );
 }
