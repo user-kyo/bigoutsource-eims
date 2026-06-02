@@ -441,6 +441,8 @@ export default function EmployeeProfile() {
   const accountBasedPreviewPlaceholder = selectedAccount
     ? 'Generated after name is entered'
     : 'Generated after name and department are entered';
+  const internalAccounts = accounts.filter((account) => account.accountType === 'internal');
+  const externalAccounts = accounts.filter((account) => account.accountType === 'external');
 
   return (
     <PageLayout title={pageTitle}>
@@ -563,11 +565,24 @@ export default function EmployeeProfile() {
                   {isEditing ? (
                     <Select value={form.accountAssignment} onChange={(value) => updateForm('accountAssignment', value)}>
                       <option value="">Select department</option>
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.name}>
-                          {account.name}
-                        </option>
-                      ))}
+                      {internalAccounts.length > 0 && (
+                        <optgroup label="Internal">
+                          {internalAccounts.map((account) => (
+                            <option key={account.id} value={account.name}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {externalAccounts.length > 0 && (
+                        <optgroup label="External">
+                          {externalAccounts.map((account) => (
+                            <option key={account.id} value={account.name}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </Select>
                   ) : (
                     employee.accountAssignment || 'Not Assigned'

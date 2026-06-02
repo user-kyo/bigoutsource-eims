@@ -1,6 +1,9 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   ChevronRight,
   Download,
   Loader2,
@@ -91,6 +94,13 @@ type DirectoryFieldKey =
   | 'updatedAt'
   | 'updatedBy';
 
+type SortDirection = 'asc' | 'desc';
+
+type SortConfig = {
+  key: DirectoryFieldKey;
+  direction: SortDirection;
+};
+
 const defaultVisibleFieldKeys: DirectoryFieldKey[] = [
   'fullName',
   'employeeId',
@@ -148,6 +158,8 @@ const directoryFields: Array<{ key: DirectoryFieldKey; label: string; render: (e
   { key: 'updatedAt', label: 'Updated At', render: (emp) => emp.updatedAt || '-' },
   { key: 'updatedBy', label: 'Updated By', render: (emp) => emp.updatedBy || '-' },
 ];
+
+const sortableFieldKeys: DirectoryFieldKey[] = directoryFields.map((field) => field.key);
 
 const initialForm: AddEmployeeForm = {
   employeeNumber: '',
@@ -276,6 +288,22 @@ function normalizeAccountList(value: any) {
   return asArray(value).map(normalizeAccount).filter((account: any): account is AccountOption => Boolean(account));
 }
 
+function sortValue(emp: EmployeeRecord, key: DirectoryFieldKey) {
+  if (key === 'employeeId') return emp.employeeId || emp.employeeNumber || '';
+  return String(emp[key as keyof EmployeeRecord] || '');
+}
+
+function compareEmployees(a: EmployeeRecord, b: EmployeeRecord, sortConfig: SortConfig) {
+  const direction = sortConfig.direction === 'asc' ? 1 : -1;
+  const first = sortValue(a, sortConfig.key).trim();
+  const second = sortValue(b, sortConfig.key).trim();
+
+  if (!first && second) return 1;
+  if (first && !second) return -1;
+
+  return first.localeCompare(second, undefined, { numeric: true, sensitivity: 'base' }) * direction;
+}
+
 export default function Directory() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -295,6 +323,7 @@ export default function Directory() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isStagingImport, setIsStagingImport] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [form, setForm] = useState<AddEmployeeForm>(initialForm);
 
   const loadAccounts = async () => {
@@ -401,17 +430,21 @@ export default function Directory() {
       return matchesSearch && matchesSite && matchesStatus && matchesAccount;
     });
 
-  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / recordsPerPage));
+  const sortedEmployees = useMemo(
+    () => (sortConfig ? [...filteredEmployees].sort((a, b) => compareEmployees(a, b, sortConfig)) : filteredEmployees),
+    [filteredEmployees, sortConfig]
+  );
+  const totalPages = Math.max(1, Math.ceil(sortedEmployees.length / recordsPerPage));
   const pageStartIndex = (currentPage - 1) * recordsPerPage;
-  const paginatedEmployees = filteredEmployees.slice(pageStartIndex, pageStartIndex + recordsPerPage);
-  const showTableEmptyState = isLoading || filteredEmployees.length === 0;
+  const paginatedEmployees = sortedEmployees.slice(pageStartIndex, pageStartIndex + recordsPerPage);
+  const showTableEmptyState = isLoading || sortedEmployees.length === 0;
   const placeholderRowCount = showTableEmptyState ? 0 : Math.max(0, recordsPerPage - paginatedEmployees.length);
   const hasPreviousPage = currentPage > 1;
   const hasNextPage = currentPage < totalPages;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, siteFilter, statusFilter, accountFilter]);
+  }, [searchTerm, siteFilter, statusFilter, accountFilter, sortConfig]);
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -473,6 +506,22 @@ export default function Directory() {
 
   const resetFields = () => {
     setSelectedFields(null);
+  };
+
+  const toggleSort = (field: DirectoryFieldKey) => {
+    if (!sortableFieldKeys.includes(field)) return;
+
+    setSortConfig((current) => {
+      if (current?.key !== field) {
+        return { key: field, direction: 'asc' };
+      }
+
+      if (current.direction === 'asc') {
+        return { key: field, direction: 'desc' };
+      }
+
+      return null;
+    });
   };
 
   const exportToExcel = () => {
@@ -763,17 +812,38 @@ export default function Directory() {
             </colgroup>
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                {visibleFields.map((field) => (
-                  <th
-                    key={field.key}
-                    className={cn(
-                      'h-14 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle',
-                      field.key === 'fullName' ? 'pl-4 pr-3' : 'pl-6 pr-3'
-                    )}
-                  >
-                    <div className="truncate">{field.label}</div>
-                  </th>
-                ))}
+                {visibleFields.map((field) => {
+                  const isSortable = sortableFieldKeys.includes(field.key);
+                  const isActiveSort = sortConfig?.key === field.key;
+                  const SortIcon = isActiveSort ? (sortConfig.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+                  return (
+                    <th
+                      key={field.key}
+                      className={cn(
+                        'h-14 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle',
+                        field.key === 'fullName' ? 'pl-4 pr-3' : 'pl-6 pr-3'
+                      )}
+                    >
+                      {isSortable ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleSort(field.key)}
+                          aria-sort={isActiveSort ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                          className={cn(
+                            'flex max-w-full items-center gap-1.5 rounded-lg py-2 text-left uppercase tracking-widest transition-colors hover:text-[#111827]',
+                            isActiveSort && 'text-[#111827]'
+                          )}
+                        >
+                          <span className="truncate">{field.label}</span>
+                          <SortIcon className="h-3.5 w-3.5 shrink-0" />
+                        </button>
+                      ) : (
+                        <div className="truncate">{field.label}</div>
+                      )}
+                    </th>
+                  );
+                })}
                 <th className="h-14 px-4 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle"></th>
               </tr>
             </thead>
@@ -880,8 +950,8 @@ export default function Directory() {
 
             <form onSubmit={handleAddEmployee} className="overflow-y-auto max-h-[calc(92vh-81px)]">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6">
-                <Field label="ID" required>
-                  <Input value={form.employeeNumber} onChange={(value) => updateForm('employeeNumber', value)} placeholder="BOSS00045" />
+                <Field label="Last Name" required>
+                  <Input value={form.lastName} onChange={(value) => updateForm('lastName', value)} placeholder="Last name" />
                 </Field>
                 <Field label="First Name" required>
                   <Input value={form.firstName} onChange={(value) => updateForm('firstName', value)} placeholder="First name" />
@@ -889,8 +959,8 @@ export default function Directory() {
                 <Field label="Middle Name">
                   <Input value={form.middleName} onChange={(value) => updateForm('middleName', value)} placeholder="Middle name" />
                 </Field>
-                <Field label="Last Name" required>
-                  <Input value={form.lastName} onChange={(value) => updateForm('lastName', value)} placeholder="Last name" />
+                <Field label="ID" required>
+                  <Input value={form.employeeNumber} onChange={(value) => updateForm('employeeNumber', value)} placeholder="BOSS00045" />
                 </Field>
                 <Field label="Account" required>
                   <div className="relative">

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { AlertCircle, Building2, Eye, EyeOff, Lock, Mail, MapPin, ShieldCheck, User, X } from 'lucide-react';
+import { AlertCircle, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, ShieldCheck, User, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
@@ -157,6 +157,11 @@ export default function Login() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (isRegistering && registrationStep < 2) {
+      handleNextStep();
+      return;
+    }
+
     if (isRegistering && Object.keys(registrationErrors).length > 0) {
       setSubmittedRegistration(true);
       setModalError(getFirstRegistrationError(registrationErrors));
@@ -202,7 +207,7 @@ export default function Login() {
   };
 
   const handleStepNavigation = (step: RegistrationStep) => {
-    const canNavigate = step <= maxUnlockedStep && step <= firstInvalidStep;
+    const canNavigate = step <= maxUnlockedStep;
     if (!canNavigate) return;
     setRegistrationStep(step);
     setModalError('');
@@ -628,7 +633,7 @@ function RegistrationProgress({
           const stepIndex = index as RegistrationStep;
           const isCurrent = stepIndex === currentStep;
           const isComplete = stepIndex < maxUnlockedStep && stepIndex < firstInvalidStep;
-          const canNavigate = isCurrent || isComplete;
+          const canNavigate = stepIndex <= maxUnlockedStep;
 
           return (
             <React.Fragment key={step.title}>
@@ -649,7 +654,7 @@ function RegistrationProgress({
                         : 'border-[#D1D5DB] bg-white text-[#9CA3AF]'
                   }`}
                 >
-                  {isComplete ? '●' : index + 1}
+                  {isComplete ? <Check className="h-3.5 w-3.5" /> : index + 1}
                 </span>
                 <span
                   className={`text-[10px] font-black uppercase leading-tight tracking-wider ${
