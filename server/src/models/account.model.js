@@ -56,6 +56,17 @@ export const AccountModel = {
     return normalize(rows[0]);
   },
 
+  async findById(id) {
+    const rows = await supabaseRequest('accounts', {
+      searchParams: {
+        select: '*',
+        id: `eq.${id}`,
+        limit: '1',
+      },
+    });
+    return normalize(rows[0]);
+  },
+
   async findByDepartmentCode(code) {
     const rows = await supabaseRequest('accounts', {
       searchParams: {
@@ -91,6 +102,32 @@ export const AccountModel = {
       body: payload,
     });
     return normalize(rows[0]);
+  },
+
+  async update(id, data) {
+    const payload = {
+      name: blankToNull(data.name),
+      updated_at: new Date().toISOString(),
+    };
+
+    const rows = await supabaseRequest('accounts', {
+      method: 'PATCH',
+      searchParams: {
+        id: `eq.${id}`,
+      },
+      body: payload,
+    });
+    return normalize(rows[0]);
+  },
+
+  async remove(id) {
+    const rows = await supabaseRequest('accounts', {
+      method: 'DELETE',
+      searchParams: {
+        id: `eq.${id}`,
+      },
+    });
+    return Array.isArray(rows) && rows.length > 0;
   },
 
   async touch(id) {

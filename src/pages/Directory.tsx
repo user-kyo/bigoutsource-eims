@@ -12,7 +12,7 @@ import {
   UserPlus,
   X,
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
@@ -306,6 +306,7 @@ function compareEmployees(a: EmployeeRecord, b: EmployeeRecord, sortConfig: Sort
 
 export default function Directory() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const canManageRecords = user?.role !== 'viewer';
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -315,7 +316,7 @@ export default function Directory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [siteFilter, setSiteFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [accountFilter, setAccountFilter] = useState('All Account');
+  const [accountFilter, setAccountFilter] = useState(() => searchParams.get('account') || 'All Account');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedFields, setSelectedFields] = useState<DirectoryFieldKey[] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);

@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Loader2, MoreVertical, Plus, Search, X } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { Building2, Download, Edit3, Loader2, MoreVertical, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -15,6 +18,29 @@ type Department = {
   accountType: DepartmentType;
   departmentCode: string;
   createdAt?: string;
+};
+
+type EmployeeRecord = {
+  id?: string;
+  employeeId?: string;
+  employeeNumber?: string;
+  fullName?: string;
+  accountAssignment?: string;
+  phone?: string;
+  address?: string;
+  boEmail?: string;
+  emailPassword?: string;
+  lmsAccount?: string;
+  status?: string;
+  site?: string;
+  pcName?: string;
+  rustDeskId?: string;
+  rustdeskId?: string;
+  remoteId?: string;
+  esetStatus?: string;
+  biosDate?: string;
+  activityWatchStatus?: string;
+  windowsKey?: string;
 };
 
 function suggestDepartmentCode(name = '') {
@@ -44,19 +70,31 @@ function asArray(value: any) {
   return Array.isArray(value) ? value : [];
 }
 
+function safeFilePart(value = '') {
+  return value.trim().replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || 'Department';
+}
+
 export default function Departments() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const canManageDepartments = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'hr_admin';
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
   const [employeeCounts, setEmployeeCounts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [departmentName, setDepartmentName] = useState('');
   const [departmentCode, setDepartmentCode] = useState('');
   const [isDepartmentCodeEdited, setIsDepartmentCodeEdited] = useState(false);
   const [departmentType, setDepartmentType] = useState<DepartmentType>('internal');
   const [isSaving, setIsSaving] = useState(false);
+  const [isActionSaving, setIsActionSaving] = useState(false);
 
   async function loadDepartments() {
     setIsLoading(true);
@@ -70,6 +108,7 @@ export default function Departments() {
       }, {});
 
       setDepartments(normalizedDepartments);
+      setEmployees(asArray(employeeList));
       setEmployeeCounts(counts);
     } catch (error: any) {
       toast.error(error.message || 'Unable to load departments');
@@ -92,6 +131,9 @@ export default function Departments() {
   const duplicateDepartmentCode = departmentCode
     ? departments.some((department) => department.departmentCode === departmentCode)
     : false;
+  const duplicateRename = renameValue.trim()
+    ? departments.some((department) => department.id !== selectedDepartment?.id && department.name.toLowerCase() === renameValue.trim().toLowerCase())
+    : false;
 
   const closeModal = () => {
     if (isSaving) return;
@@ -100,6 +142,137 @@ export default function Departments() {
     setDepartmentCode('');
     setIsDepartmentCodeEdited(false);
     setDepartmentType('internal');
+  };
+
+  const closeActionModals = (force = false) => {
+    if (isActionSaving && !force) return;
+    setSelectedDepartment(null);
+    setRenameValue('');
+    setIsRenameModalOpen(false);
+    setIsDeleteModalOpen(false);
+  };
+
+  const openRenameModal = (department: Department) => {
+    setOpenMenuId(null);
+    setSelectedDepartment(department);
+    setRenameValue(department.name);
+    setIsRenameModalOpen(true);
+  };
+
+  const openDeleteModal = (department: Department) => {
+    setOpenMenuId(null);
+    setSelectedDepartment(department);
+    setIsDeleteModalOpen(true);
+  };
+
+  const manageEmployees = (department: Department) => {
+    setOpenMenuId(null);
+    navigate(`/directory?account=${encodeURIComponent(department.name)}`);
+  };
+
+  const employeesForDepartment = (department: Department) =>
+    employees.filter((employee) => (employee.accountAssignment || (employee as any).account || '') === department.name);
+
+  const exportEmployees = (department: Department) => {
+    setOpenMenuId(null);
+    const departmentEmployees = employeesForDepartment(department);
+
+    if (!departmentEmployees.length) {
+      toast.error('No employees found for this department');
+      return;
+    }
+
+    const rows = departmentEmployees.map((employee) => ({
+      ID: employee.employeeId || employee.employeeNumber || employee.id || '',
+      Name: employee.fullName || (employee as any).name || '',
+      Account: employee.accountAssignment || (employee as any).account || '',
+      'Phone Number': employee.phone || '',
+      Address: employee.address || '',
+      'Bigoutsource Email': employee.boEmail || (employee as any).bigoutsourceEmail || '',
+      'Email Password': employee.emailPassword || '',
+      'LMS Account': employee.lmsAccount || '',
+      Status: employee.status || '',
+      Site: employee.site || '',
+      'PC Name': employee.pcName || '',
+      'RustDesk ID': employee.rustDeskId || employee.rustdeskId || '',
+      'Remote ID': employee.remoteId || '',
+      ESET: employee.esetStatus || '',
+      'BIOS Date': employee.biosDate || '',
+      ActivityWatch: employee.activityWatchStatus || '',
+      'Windows License Key': employee.windowsKey || '',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Employees');
+    XLSX.writeFile(workbook, `${safeFilePart(department.name)}_Employees.xlsx`);
+    toast.success('Department employees exported');
+  };
+
+  const renameDepartment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedDepartment) return;
+
+    const name = renameValue.trim();
+    if (!name) {
+      toast.error('Department name is required');
+      return;
+    }
+
+    if (duplicateRename) {
+      toast.error('Department name already exists. Enter a unique name.');
+      return;
+    }
+
+    setIsActionSaving(true);
+    try {
+      const updated = await accountService.update(selectedDepartment.id, { name });
+      const department = normalizeDepartment(updated);
+      if (!department) throw new Error('The server did not return the updated department.');
+
+      const previousName = selectedDepartment.name;
+      setDepartments((current) => current.map((item) => (item.id === department.id ? department : item)));
+      setEmployees((current) =>
+        current.map((employee) => {
+          const account = employee.accountAssignment || (employee as any).account || '';
+          return account === previousName ? { ...employee, accountAssignment: department.name } : employee;
+        })
+      );
+      setEmployeeCounts((current) => {
+        const next = { ...current };
+        if (previousName !== department.name) {
+          next[department.name] = next[previousName] || 0;
+          delete next[previousName];
+        }
+        return next;
+      });
+      toast.success('Department renamed');
+      closeActionModals(true);
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to rename department');
+    } finally {
+      setIsActionSaving(false);
+    }
+  };
+
+  const deleteDepartment = async () => {
+    if (!selectedDepartment) return;
+
+    setIsActionSaving(true);
+    try {
+      await accountService.remove(selectedDepartment.id);
+      setDepartments((current) => current.filter((department) => department.id !== selectedDepartment.id));
+      setEmployeeCounts((current) => {
+        const next = { ...current };
+        delete next[selectedDepartment.name];
+        return next;
+      });
+      toast.success('Department deleted');
+      closeActionModals(true);
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to delete department');
+    } finally {
+      setIsActionSaving(false);
+    }
   };
 
   const updateDepartmentName = (value: string) => {
@@ -172,8 +345,30 @@ export default function Departments() {
         </div>
 
         <div className="space-y-8">
-          <DepartmentGroup title="Internal" departments={internalDepartments} employeeCounts={employeeCounts} />
-          <DepartmentGroup title="External" departments={externalDepartments} employeeCounts={employeeCounts} />
+          <DepartmentGroup
+            title="Internal"
+            departments={internalDepartments}
+            employeeCounts={employeeCounts}
+            canManageDepartments={canManageDepartments}
+            openMenuId={openMenuId}
+            onToggleMenu={(departmentId) => setOpenMenuId((current) => (current === departmentId ? null : departmentId))}
+            onRename={openRenameModal}
+            onDelete={openDeleteModal}
+            onManageEmployees={manageEmployees}
+            onExportEmployees={exportEmployees}
+          />
+          <DepartmentGroup
+            title="External"
+            departments={externalDepartments}
+            employeeCounts={employeeCounts}
+            canManageDepartments={canManageDepartments}
+            openMenuId={openMenuId}
+            onToggleMenu={(departmentId) => setOpenMenuId((current) => (current === departmentId ? null : departmentId))}
+            onRename={openRenameModal}
+            onDelete={openDeleteModal}
+            onManageEmployees={manageEmployees}
+            onExportEmployees={exportEmployees}
+          />
         </div>
 
         {(isLoading || filteredDepartments.length === 0) && (
@@ -270,6 +465,93 @@ export default function Departments() {
           </div>
         </div>
       )}
+
+      {isRenameModalOpen && selectedDepartment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
+              <div>
+                <h2 className="text-lg font-black text-[#111827]">Rename Department</h2>
+                <p className="text-xs font-bold text-[#6B7280]">Employee assignments will follow the new department name.</p>
+              </div>
+              <button type="button" onClick={() => closeActionModals()} className="rounded-xl p-2 text-[#9CA3AF] transition-all hover:bg-[#F3F4F6] hover:text-[#111827]">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={renameDepartment} className="space-y-5 p-6">
+              <label className="block">
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Department Name</span>
+                <input
+                  value={renameValue}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                  className={cn(
+                    'w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition-all focus:ring-2',
+                    duplicateRename ? 'border-red-300 focus:ring-red-500' : 'border-[#E5E7EB] focus:ring-[#111827]'
+                  )}
+                />
+                {duplicateRename && <p className="mt-2 text-xs font-bold text-red-600">This department name already exists.</p>}
+              </label>
+
+              <div className="flex items-center justify-end gap-3 border-t border-[#F3F4F6] pt-5">
+                <button
+                  type="button"
+                  onClick={() => closeActionModals()}
+                  disabled={isActionSaving}
+                  className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:text-[#111827]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isActionSaving || duplicateRename}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#111827] px-6 py-2.5 text-sm font-black text-white shadow-lg shadow-[#11182720] transition-all hover:bg-[#374151] disabled:opacity-60"
+                >
+                  {isActionSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Rename
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isDeleteModalOpen && selectedDepartment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+            <div className="border-b border-[#E5E7EB] px-6 py-4">
+              <h2 className="text-lg font-black text-[#111827]">Delete Department</h2>
+              <p className="mt-1 text-xs font-bold text-[#6B7280]">This can only delete departments with no assigned employees.</p>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <p className="text-sm font-bold text-[#4B5563]">
+                Delete <span className="text-[#111827]">{selectedDepartment.name}</span>?
+              </p>
+
+              <div className="flex items-center justify-end gap-3 border-t border-[#F3F4F6] pt-5">
+                <button
+                  type="button"
+                  onClick={() => closeActionModals()}
+                  disabled={isActionSaving}
+                  className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:text-[#111827]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteDepartment}
+                  disabled={isActionSaving}
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-black text-white shadow-lg shadow-red-600/20 transition-all hover:bg-red-700 disabled:opacity-60"
+                >
+                  {isActionSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }
@@ -278,10 +560,24 @@ function DepartmentGroup({
   title,
   departments,
   employeeCounts,
+  canManageDepartments,
+  openMenuId,
+  onToggleMenu,
+  onRename,
+  onDelete,
+  onManageEmployees,
+  onExportEmployees,
 }: {
   title: string;
   departments: Department[];
   employeeCounts: Record<string, number>;
+  canManageDepartments: boolean;
+  openMenuId: string | null;
+  onToggleMenu: (departmentId: string) => void;
+  onRename: (department: Department) => void;
+  onDelete: (department: Department) => void;
+  onManageEmployees: (department: Department) => void;
+  onExportEmployees: (department: Department) => void;
 }) {
   if (!departments.length) return null;
 
@@ -290,14 +586,34 @@ function DepartmentGroup({
       <h2 className="px-1 text-xs font-black uppercase tracking-widest text-[#6B7280]">{title}</h2>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {departments.map((department) => (
-          <div key={department.id} className="group rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+          <div key={department.id} className="group relative rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
             <div className="mb-4 flex items-start justify-between">
               <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
                 <Building2 className="h-6 w-6 text-blue-600" />
               </div>
-              <button className="p-2 text-[#9CA3AF] opacity-0 transition-opacity group-hover:opacity-100">
-                <MoreVertical className="h-5 w-5" />
-              </button>
+              {canManageDepartments && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => onToggleMenu(department.id)}
+                    aria-label={`Open actions for ${department.name}`}
+                    aria-expanded={openMenuId === department.id}
+                    className="rounded-xl p-2 text-[#9CA3AF] transition-all hover:bg-[#F3F4F6] hover:text-[#111827]"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+
+                  {openMenuId === department.id && (
+                    <div className="absolute right-0 top-[calc(100%+8px)] z-20 w-52 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white py-1 shadow-xl shadow-[#11182714]">
+                      <DepartmentAction icon={Edit3} label="Rename" onClick={() => onRename(department)} />
+                      <DepartmentAction icon={Users} label="Manage Employees" onClick={() => onManageEmployees(department)} />
+                      <DepartmentAction icon={Download} label="Export Employees" onClick={() => onExportEmployees(department)} />
+                      <div className="my-1 border-t border-[#F3F4F6]" />
+                      <DepartmentAction icon={Trash2} label="Delete" onClick={() => onDelete(department)} destructive />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <h3 className="mb-1 text-lg font-bold text-[#111827]">{department.name}</h3>
@@ -319,5 +635,31 @@ function DepartmentGroup({
         ))}
       </div>
     </section>
+  );
+}
+
+function DepartmentAction({
+  icon: Icon,
+  label,
+  onClick,
+  destructive = false,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-bold transition-all hover:bg-[#F9FAFB]',
+        destructive ? 'text-red-600 hover:text-red-700' : 'text-[#4B5563] hover:text-[#111827]'
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
   );
 }
