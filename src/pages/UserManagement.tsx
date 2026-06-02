@@ -1,10 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
-import { CheckCircle2, Loader2, Search, ShieldAlert, ShieldCheck, UserX, UsersRound } from 'lucide-react';
+import { Check, CheckCircle2, Loader2, Pencil, Search, ShieldAlert, ShieldCheck, Trash2, UserX, UsersRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
-import { AppUser } from '@/src/types';
+import { AppUser, UserRole } from '@/src/types';
 import { userService } from '@/src/services/userService';
+import { authService } from '@/src/services/authService';
+import { siteService } from '@/src/services/siteService';
+
+const EDITABLE_ROLES: UserRole[] = ['viewer', 'admin'];
+const EDITABLE_ACCOUNT_STATUSES = [
+  { value: 'active' as const, label: 'Active' },
+  { value: 'disabled' as const, label: 'Inactive' },
+];
+
+type EditableAccountStatus = (typeof EDITABLE_ACCOUNT_STATUSES)[number]['value'];
+
+type UserEditDraft = {
+  department: string;
+  site: string;
+  role: UserRole;
+  status: EditableAccountStatus;
+};
 
 function asArray(value: any) {
   return Array.isArray(value) ? value : [];
@@ -20,11 +37,49 @@ function statusClass(status: string) {
   return 'bg-red-50 text-red-700';
 }
 
+function statusLabel(status: string) {
+  if (status === 'disabled') return 'inactive';
+  return status;
+}
+
+function normalizeSiteNames(value: any) {
+  return asArray(value)
+    .map((site: any) => String(site?.name || '').trim())
+    .filter(Boolean);
+}
+
+function toEditDraft(user: AppUser): UserEditDraft {
+  let role: UserRole = 'viewer';
+  if (user.role === 'admin' || user.role === 'viewer') {
+    role = user.role;
+  } else if (user.role === 'hr_admin' || user.role === 'it_admin') {
+    role = 'admin';
+  }
+  const status: EditableAccountStatus = user.status === 'active' ? 'active' : 'disabled';
+
+  return {
+    department: user.department && user.department !== 'Unassigned' ? user.department : '',
+    site: user.site || '',
+    role,
+    status,
+  };
+}
+
+function selectClassName() {
+  return 'w-full max-w-[180px] rounded-lg border border-[#E5E7EB] bg-white px-2 py-1.5 text-xs font-bold text-[#4B5563] focus:ring-2 focus:ring-[#111827] outline-none';
+}
+
 export default function UserManagement() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<UserEditDraft | null>(null);
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+  const [siteOptions, setSiteOptions] = useState<string[]>([]);
+  const [disablingUserId, setDisablingUserId] = useState<string | null>(null);
+  const [deleteUser, setDeleteUser] = useState<AppUser | null>(null);
 
   async function loadUsers() {
     setIsLoading(true);
@@ -39,6 +94,34 @@ export default function UserManagement() {
 
   useEffect(() => {
     loadUsers();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadOptions() {
+      try {
+        const [departments, sites] = await Promise.all([
+          authService.internalDepartments(),
+          siteService.list(),
+        ]);
+
+        if (!isMounted) return;
+
+        setDepartmentOptions(asArray(departments).map((name) => String(name).trim()).filter(Boolean));
+        const names = normalizeSiteNames(sites);
+        setSiteOptions(names.length ? names : ['HQ', 'Candelaria', 'WFH', 'Hybrid']);
+      } catch (error: any) {
+        if (isMounted) {
+          toast.error(error.message || 'Unable to load department and site options');
+        }
+      }
+    }
+
+    loadOptions();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const summary = useMemo(
@@ -68,11 +151,12 @@ export default function UserManagement() {
     }
   };
 
-  const disableUser = async (id: string) => {
+  const confirmDisableUser = async (id: string) => {
     setBusyId(id);
     try {
       await userService.disable(id);
       toast.success('User disabled');
+      setDisablingUserId(null);
       await loadUsers();
     } catch (error: any) {
       toast.error(error.message || 'Unable to disable user');
@@ -80,6 +164,82 @@ export default function UserManagement() {
       setBusyId(null);
     }
   };
+
+  const deleteUserAccount = async () => {
+    if (!deleteUser) return;
+
+    setBusyId(deleteUser.uid);
+    try {
+      await userService.remove(deleteUser.uid);
+      toast.success('User deleted');
+      setDeleteUser(null);
+      if (editingId === deleteUser.uid) cancelEditing();
+      if (disablingUserId === deleteUser.uid) setDisablingUserId(null);
+      await loadUsers();
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to delete user');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const startEditing = (user: AppUser) => {
+    setDisablingUserId(null);
+    setEditingId(user.uid);
+    setEditDraft(toEditDraft(user));
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditDraft(null);
+  };
+
+  const saveUser = async (id: string) => {
+    if (!editDraft) return;
+
+    if (!editDraft.department.trim()) {
+      toast.error('Select a department');
+      return;
+    }
+
+    if (!editDraft.site.trim()) {
+      toast.error('Select a site');
+      return;
+    }
+
+    setBusyId(id);
+    try {
+      await userService.update(id, {
+        department: editDraft.department.trim(),
+        site: editDraft.site.trim(),
+        role: editDraft.role,
+        status: editDraft.status,
+      });
+      toast.success('User updated');
+      cancelEditing();
+      await loadUsers();
+    } catch (error: any) {
+      toast.error(error.message || 'Unable to update user');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const departmentSelectOptions = useMemo(() => {
+    const options = [...departmentOptions];
+    if (editDraft?.department && !options.includes(editDraft.department)) {
+      options.unshift(editDraft.department);
+    }
+    return options;
+  }, [departmentOptions, editDraft?.department]);
+
+  const siteSelectOptions = useMemo(() => {
+    const options = [...siteOptions];
+    if (editDraft?.site && !options.includes(editDraft.site)) {
+      options.unshift(editDraft.site);
+    }
+    return options;
+  }, [siteOptions, editDraft?.site]);
 
   return (
     <PageLayout title="System Permissions & Users">
@@ -116,58 +276,212 @@ export default function UserManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F3F4F6]">
-              {filteredUsers.map((user) => (
-                <tr key={user.uid} className="hover:bg-[#F9FAFB] transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-[#F3F4F6] flex items-center justify-center text-[10px] font-black text-[#111827] border border-[#E5E7EB]">
-                        {(user.fullName || user.email).substring(0, 2).toUpperCase()}
+              {filteredUsers.map((user) => {
+                const isEditing = editingId === user.uid;
+                const canEdit = user.role !== 'super_admin';
+
+                return (
+                  <tr key={user.uid} className="hover:bg-[#F9FAFB] transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#F3F4F6] flex items-center justify-center text-[10px] font-black text-[#111827] border border-[#E5E7EB]">
+                          {(user.fullName || user.email).substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-[#111827] truncate">{user.fullName || user.email}</p>
+                          <p className="text-[10px] text-[#9CA3AF] font-bold tracking-tighter uppercase">{user.email}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-[#111827] truncate">{user.fullName || user.email}</p>
-                        <p className="text-[10px] text-[#9CA3AF] font-bold tracking-tighter uppercase">{user.email}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing && editDraft ? (
+                        <select
+                          value={editDraft.role}
+                          onChange={(event) =>
+                            setEditDraft((current) =>
+                              current ? { ...current, role: event.target.value as UserRole } : current
+                            )
+                          }
+                          className={selectClassName()}
+                          disabled={busyId === user.uid}
+                        >
+                          {EDITABLE_ROLES.map((role) => (
+                            <option key={role} value={role}>
+                              {roleLabel(role)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-[#D1D5DB]" />
+                          <span className="text-xs font-black text-[#4B5563] uppercase tracking-tight">{roleLabel(user.role)}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing && editDraft ? (
+                        <select
+                          value={editDraft.department}
+                          onChange={(event) =>
+                            setEditDraft((current) => (current ? { ...current, department: event.target.value } : current))
+                          }
+                          className={selectClassName()}
+                          disabled={busyId === user.uid || !departmentSelectOptions.length}
+                        >
+                          <option value="">Select department</option>
+                          {departmentSelectOptions.map((department) => (
+                            <option key={department} value={department}>
+                              {department}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs font-bold text-[#4B5563]">{user.department || 'Unassigned'}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing && editDraft ? (
+                        <select
+                          value={editDraft.site}
+                          onChange={(event) =>
+                            setEditDraft((current) => (current ? { ...current, site: event.target.value } : current))
+                          }
+                          className={selectClassName()}
+                          disabled={busyId === user.uid || !siteSelectOptions.length}
+                        >
+                          <option value="">Select site</option>
+                          {siteSelectOptions.map((site) => (
+                            <option key={site} value={site}>
+                              {site}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs font-bold text-[#4B5563]">{user.site || 'HQ'}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing && editDraft ? (
+                        <select
+                          value={editDraft.status}
+                          onChange={(event) =>
+                            setEditDraft((current) =>
+                              current ? { ...current, status: event.target.value as EditableAccountStatus } : current
+                            )
+                          }
+                          className={selectClassName()}
+                          disabled={busyId === user.uid}
+                        >
+                          {EDITABLE_ACCOUNT_STATUSES.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter ${statusClass(user.status)}`}>
+                          {statusLabel(user.status)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => saveUser(user.uid)}
+                              disabled={busyId === user.uid}
+                              aria-label="Save changes"
+                              className="inline-flex items-center justify-center w-9 h-9 bg-[#111827] text-white rounded-lg hover:bg-[#374151] disabled:opacity-50"
+                            >
+                              {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={cancelEditing}
+                              disabled={busyId === user.uid}
+                              aria-label="Cancel editing"
+                              className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#E5E7EB] text-[#4B5563] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {canEdit && (
+                              <>
+                                <button
+                                  onClick={() => startEditing(user)}
+                                  disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                  aria-label="Edit user"
+                                  className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#E5E7EB] text-[#4B5563] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDisablingUserId(null);
+                                    setDeleteUser(user);
+                                  }}
+                                  disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                  aria-label="Delete user"
+                                  className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                            {user.status === 'pending' && (
+                              <button
+                                onClick={() => approveUser(user.uid)}
+                                disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                className="inline-flex items-center gap-2 px-3 py-2 bg-[#111827] text-white rounded-lg text-xs font-black hover:bg-[#374151] disabled:opacity-50"
+                              >
+                                {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                Approve
+                              </button>
+                            )}
+                            {user.status === 'active' && canEdit && (
+                              disablingUserId === user.uid ? (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDisablingUserId(null)}
+                                    disabled={busyId === user.uid}
+                                    className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-black text-[#4B5563] hover:bg-[#F9FAFB] disabled:opacity-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => confirmDisableUser(user.uid)}
+                                    disabled={busyId === user.uid}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-[#B91C1C] px-3 py-2 text-xs font-black text-white hover:bg-[#991B1B] disabled:opacity-50"
+                                  >
+                                    {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+                                    Confirm Disable
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    cancelEditing();
+                                    setDisablingUserId(user.uid);
+                                  }}
+                                  disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                  className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg text-xs font-black hover:bg-[#FEF2F2] disabled:opacity-50"
+                                >
+                                  <UserX className="w-4 h-4" />
+                                  Disable
+                                </button>
+                              )
+                            )}
+                          </>
+                        )}
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-[#D1D5DB]" />
-                      <span className="text-xs font-black text-[#4B5563] uppercase tracking-tight">{roleLabel(user.role)}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-xs font-bold text-[#4B5563]">{user.department || 'Unassigned'}</td>
-                  <td className="px-6 py-4 text-xs font-bold text-[#4B5563]">{user.site || 'HQ'}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter ${statusClass(user.status)}`}>
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      {user.status === 'pending' && (
-                        <button
-                          onClick={() => approveUser(user.uid)}
-                          disabled={busyId === user.uid}
-                          className="inline-flex items-center gap-2 px-3 py-2 bg-[#111827] text-white rounded-lg text-xs font-black hover:bg-[#374151] disabled:opacity-50"
-                        >
-                          {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          Approve
-                        </button>
-                      )}
-                      {user.status === 'active' && user.role !== 'super_admin' && (
-                        <button
-                          onClick={() => disableUser(user.uid)}
-                          disabled={busyId === user.uid}
-                          className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg text-xs font-black hover:bg-[#FEF2F2] disabled:opacity-50"
-                        >
-                          {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-                          Disable
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
@@ -181,6 +495,43 @@ export default function UserManagement() {
           )}
         </div>
       </div>
+
+      {deleteUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+            <div className="border-b border-[#E5E7EB] px-6 py-4">
+              <h2 className="text-lg font-black text-[#111827]">Delete User</h2>
+              <p className="mt-1 text-xs font-bold text-[#6B7280]">This permanently removes the account and cannot be undone.</p>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <p className="text-sm font-bold text-[#4B5563]">
+                Delete <span className="text-[#111827]">{deleteUser.fullName || deleteUser.email}</span>?
+              </p>
+
+              <div className="flex items-center justify-end gap-3 border-t border-[#F3F4F6] pt-5">
+                <button
+                  type="button"
+                  onClick={() => setDeleteUser(null)}
+                  disabled={busyId === deleteUser.uid}
+                  className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:text-[#111827] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteUserAccount}
+                  disabled={busyId === deleteUser.uid}
+                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-black text-white shadow-lg shadow-red-600/20 transition-all hover:bg-red-700 disabled:opacity-60"
+                >
+                  {busyId === deleteUser.uid && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 }

@@ -15,6 +15,8 @@ function toQuery(params = {}) {
 
 export const userService = {
   list: (params) => apiRequest(`/users${toQuery(params)}`),
+  update: (id, input) => apiRequest(`/users/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   approve: (id) => apiRequest(`/users/${id}/approve`, { method: 'PUT' }),
   disable: (id) => apiRequest(`/users/${id}/disable`, { method: 'PUT' }),
+  remove: (id) => apiRequest(`/users/${id}`, { method: 'DELETE' }),
 };

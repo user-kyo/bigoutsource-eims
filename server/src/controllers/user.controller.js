@@ -25,4 +25,20 @@ export const UserController = {
       return next(error);
     }
   },
+
+  async update(req, res, next) {
+    try {
+      return success(res, await UserService.update(req.params.id, req.body, req.user), 'User updated');
+    } catch (error) {
+      return next(error);
+    }
+  },
+
+  async remove(req, res, next) {
+    try {
+      return success(res, await UserService.remove(req.params.id), 'User deleted');
+    } catch (error) {
+      return next(error);
+    }
+  },
 };
