@@ -54,8 +54,8 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <Toaster position="bottom-right" />
       </Router>
-      <Toaster position="bottom-right" />
     </AuthProvider>
   );
 }
