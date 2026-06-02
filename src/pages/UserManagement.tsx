@@ -124,7 +124,7 @@ export default function UserManagement() {
 
         setDepartmentOptions(asArray(departments).map((name) => String(name).trim()).filter(Boolean));
         const names = normalizeSiteNames(sites);
-        setSiteOptions(names.length ? names : ['HQ', 'Candelaria', 'WFH', 'Hybrid']);
+        setSiteOptions(names.length ? names : ['San Pablo City (HQ)', 'Candelaria', 'WFH', 'Hybrid']);
       } catch (error: any) {
         if (isMounted) {
           toast.error(error.message || 'Unable to load department and site options');
@@ -371,7 +371,7 @@ export default function UserManagement() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-xs font-bold text-[#4B5563]">{user.site || 'HQ'}</span>
+                        <span className="text-xs font-bold text-[#4B5563]">{user.site || 'San Pablo City (HQ)'}</span>
                       )}
                     </td>
                     <td className="px-6 py-4">

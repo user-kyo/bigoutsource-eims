@@ -37,7 +37,7 @@ type DeleteIntent = {
   ids: string[];
 };
 
-const siteOptions = ['HQ', 'Candelaria', 'WFH', 'Hybrid'];
+const siteOptions = ['San Pablo City (HQ)', 'Candelaria', 'WFH', 'Hybrid'];
 
 const fieldLabels: Array<[string, string]> = [
   ['employeeNumber', 'ID'],
@@ -81,7 +81,10 @@ function normalizeSiteOption(value?: string) {
   if (next === 'can' || next === 'cand' || next === 'candelaria') return 'Candelaria';
   if (next === 'wfh/hybrid' || next === 'hybrid') return 'Hybrid';
   if (next === 'wfh') return 'WFH';
-  if (next === 'hq') return 'HQ';
+  if (next === 'hq') return 'San Pablo City (HQ)';
+  if (next === 'san pablo') return 'San Pablo City (HQ)';
+  if (next === 'san pablo city') return 'San Pablo City (HQ)';
+  if (next === 'san pablo city (hq)') return 'San Pablo City (HQ)';
   return value || '';
 }
 

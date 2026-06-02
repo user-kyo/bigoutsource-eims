@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { AlertCircle, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, ShieldCheck, User, X } from 'lucide-react';
+import { AlertCircle, Building2, Check, CheckCircle2, ChevronRight, Circle, Eye, EyeOff, Lock, Mail, MapPin, ShieldCheck, User, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
@@ -15,7 +15,7 @@ const REGISTRATION_STEPS = [
   { title: 'Security', fields: ['password', 'confirmPassword'] },
 ] as const;
 
-const SITE_OPTIONS = ['HQ', 'Candelaria', 'WFH', 'Hybrid'];
+const SITE_OPTIONS = ['San Pablo City (HQ)', 'Candelaria', 'WFH', 'Hybrid'];
 
 const PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
@@ -225,9 +225,13 @@ export default function Login() {
             <div className="w-16 h-16 bg-[#111827] rounded-2xl flex items-center justify-center mb-4">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-[#111827] tracking-tight">System Login</h1>
-            <p className="text-[#6B7280] text-sm mt-2 texts-center text-balance">
-              Authorized Big Outsource personnel only.
+            <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
+              {mode === 'login' ? 'Welcome Back' : 'Create an Account'}
+            </h1>
+            <p className="text-[#6B7280] text-sm mt-2 text-center text-balance">
+              {mode === 'login'
+                ? 'Enter your credentials to access your dashboard.'
+                : 'Fill in your details to request system access.'}
             </p>
           </div>
 
@@ -239,11 +243,10 @@ export default function Login() {
                 setModalError('');
                 setRegistrationStep(0);
               }}
-              className={`py-2.5 rounded-lg text-sm font-black transition-all ${
-                mode === 'login' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'
-              }`}
+              className={`py-2.5 rounded-lg text-sm font-black transition-all ${mode === 'login' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'
+                }`}
             >
-              Sign In
+              Log In
             </button>
             <button
               type="button"
@@ -251,9 +254,8 @@ export default function Login() {
                 setMode('register');
                 setModalError('');
               }}
-              className={`py-2.5 rounded-lg text-sm font-black transition-all ${
-                mode === 'register' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'
-              }`}
+              className={`py-2.5 rounded-lg text-sm font-black transition-all ${mode === 'register' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'
+                }`}
             >
               Register
             </button>
@@ -277,7 +279,7 @@ export default function Login() {
                       type="text"
                       value={fullName}
                       onChange={setFullName}
-                      placeholder="Juan Dela Cruz"
+                      placeholder="e.g. Juan Dela Cruz"
                       error={registrationErrors.fullName}
                       required
                     />
@@ -336,9 +338,8 @@ export default function Login() {
                         {PASSWORD_RULES.map((rule) => (
                           <div
                             key={rule.label}
-                            className={`h-1.5 flex-1 rounded-full ${
-                              rule.test(password) ? passwordStrengthColor : 'bg-[#E5E7EB]'
-                            }`}
+                            className={`h-1.5 flex-1 rounded-full ${rule.test(password) ? passwordStrengthColor : 'bg-[#E5E7EB]'
+                              }`}
                           />
                         ))}
                         <span className="ml-2 text-[10px] font-black uppercase tracking-wider text-[#6B7280]">
@@ -428,7 +429,7 @@ export default function Login() {
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    'Sign In to Dashboard'
+                    'Log In'
                   )}
                 </button>
               </>
@@ -501,7 +502,7 @@ function AuthInput({
   required?: boolean;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-1.5">
       <label className="text-xs font-bold text-[#374151] uppercase tracking-wider">{label}</label>
       <div className="relative">
         <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
@@ -540,28 +541,64 @@ function SelectInput({
   required?: boolean;
   disabled?: boolean;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (disabled) setIsOpen(false);
+  }, [disabled]);
+
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-1.5">
       <label className="text-xs font-bold text-[#374151] uppercase tracking-wider">{label}</label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
-        <select
-          required={required}
-          value={value}
+        <Icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] z-10 pointer-events-none" />
+        <button
+          type="button"
           disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-          className="w-full appearance-none rounded-xl border-none bg-[#F3F4F6] py-3 pl-10 pr-10 text-sm outline-none transition-all focus:ring-2 focus:ring-[#111827] disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={() => setIsOpen((current) => !current)}
+          className={`flex w-full items-center justify-between gap-3 rounded-xl border-none bg-[#F3F4F6] py-3 pl-10 pr-4 text-left text-sm outline-none transition-all focus:ring-2 focus:ring-[#111827] disabled:cursor-not-allowed disabled:opacity-60 ${error ? 'ring-2 ring-[#DC2626]' : ''
+            }`}
         >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#9CA3AF]">
-          v
-        </span>
+          <span className={`truncate ${!value ? 'text-[#9CA3AF]' : 'text-[#111827]'}`}>
+            {value || placeholder}
+          </span>
+          <ChevronRight
+            className={`h-4 w-4 shrink-0 text-[#9CA3AF] transition-transform ${isOpen ? 'rotate-90' : ''
+              }`}
+          />
+        </button>
+
+        {isOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setIsOpen(false)}
+            />
+            <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-xl shadow-[#11182714]">
+              <div className="max-h-64 overflow-y-auto">
+                {options.length > 0 ? (
+                  options.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => {
+                        onChange(option);
+                        setIsOpen(false);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm font-semibold text-[#4B5563] transition-colors hover:bg-[#F3F4F6] focus:bg-[#F3F4F6] outline-none"
+                    >
+                      {option}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-xs font-bold text-[#6B7280]">
+                    No options available
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
       {error && <p className="text-xs font-semibold text-[#DC2626]">{error}</p>}
     </div>
@@ -588,7 +625,7 @@ function PasswordInput({
   error?: string;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-1.5">
       <label className="text-xs font-bold text-[#374151] uppercase tracking-wider">{label}</label>
       <div className="relative">
         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
@@ -632,8 +669,8 @@ function RegistrationProgress({
         {REGISTRATION_STEPS.map((step, index) => {
           const stepIndex = index as RegistrationStep;
           const isCurrent = stepIndex === currentStep;
-          const isComplete = stepIndex < maxUnlockedStep && stepIndex < firstInvalidStep;
-          const canNavigate = stepIndex <= maxUnlockedStep;
+          const isComplete = stepIndex < currentStep;
+          const canNavigate = stepIndex <= currentStep;
 
           return (
             <React.Fragment key={step.title}>
@@ -646,20 +683,18 @@ function RegistrationProgress({
                 aria-label={`${isComplete ? 'Completed' : isCurrent ? 'Current' : 'Upcoming'} step ${index + 1}: ${step.title}`}
               >
                 <span
-                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all ${
-                    isCurrent
-                      ? 'border-[#111827] bg-white text-[#111827] ring-4 ring-[#11182714]'
-                      : isComplete
-                        ? 'border-[#111827] bg-[#111827] text-white group-hover:bg-[#374151]'
-                        : 'border-[#D1D5DB] bg-white text-[#9CA3AF]'
-                  }`}
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-black transition-all ${isCurrent
+                    ? 'border-[#111827] bg-white text-[#111827] ring-4 ring-[#11182714]'
+                    : isComplete
+                      ? 'border-[#111827] bg-[#111827] text-white group-hover:bg-[#374151]'
+                      : 'border-[#D1D5DB] bg-white text-[#9CA3AF]'
+                    }`}
                 >
                   {isComplete ? <Check className="h-3.5 w-3.5" /> : index + 1}
                 </span>
                 <span
-                  className={`text-[10px] font-black uppercase leading-tight tracking-wider ${
-                    isCurrent ? 'text-[#111827]' : isComplete ? 'text-[#374151]' : 'text-[#9CA3AF]'
-                  }`}
+                  className={`text-[10px] font-black uppercase leading-tight tracking-wider ${isCurrent ? 'text-[#111827]' : isComplete ? 'text-[#374151]' : 'text-[#9CA3AF]'
+                    }`}
                 >
                   {step.title}
                 </span>

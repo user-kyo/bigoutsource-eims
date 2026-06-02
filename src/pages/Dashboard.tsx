@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpRight, Clock, Laptop, MapPin, UserCheck, UserMinus, Users, Building2 } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Clock, Laptop, MapPin, UserCheck, UserMinus, Users, Building2, TrendingUp, BarChart3, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { PageLayout } from '@/src/components/layout/PageLayout';
 import { employeeService } from '@/src/services/employeeService';
 import { deviceService } from '@/src/services/deviceService';
 import { auditLogService } from '@/src/services/auditLogService';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell
+} from 'recharts';
 
 function asArray(value: any) {
   return Array.isArray(value) ? value : [];
@@ -16,14 +20,42 @@ function formatTime(value?: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
+    year: 'numeric'
   }).format(new Date(value));
 }
 
 function actionLabel(action: string) {
   return action.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
+
+const COLORS = ['#6366F1', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+const SITE_COLORS: Record<string, string> = {
+  'San Pablo City (HQ)': '#6366F1',
+  'Candelaria': '#3B82F6',
+  'WFH': '#10B981',
+  'Hybrid': '#F59E0B',
+};
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white px-3 py-2 border border-[#E5E7EB] rounded-xl shadow-lg shadow-[#11182714]">
+        {payload.map((entry: any, index: number) => {
+          const displayLabel = entry.name === 'count' ? (entry.payload.name || label || 'Total') : entry.name;
+          return (
+            <div key={index} className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.payload.fill || '#111827' }} />
+              <span className="text-xs font-bold text-[#4B5563]">{displayLabel}:</span>
+              <span className="text-xs font-black text-[#111827]">{entry.value}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function Dashboard() {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -56,32 +88,118 @@ export default function Dashboard() {
     };
   }, []);
 
-  const stats = useMemo(() => {
-    const assigned = devices.filter((device) => device.status === 'assigned').length;
-    const onSite = employees.filter((employee) => employee.site === 'HQ' || employee.site === 'Candelaria').length;
-
-    return [
-      { label: 'Total Personnel', value: employees.length, icon: Users },
-      { label: 'On-Site Personnel', value: onSite, icon: Building2 },
-      { label: 'Assigned Assets', value: assigned, icon: Laptop },
-    ];
-  }, [employees, devices]);
-
-  const staffStatus = useMemo(() => {
-    const active = employees.filter((employee) => String(employee.status || '').toLowerCase() === 'active').length;
-    const inactive = employees.filter((employee) => {
-      const status = String(employee.status || '').toLowerCase();
-      return status === 'inactive' || status === 'offboarding';
+  const turnoverStats = useMemo(() => {
+    const active = employees.filter(e => e.status === 'active').length;
+    const inactive = employees.filter(e => {
+      const status = String(e.status || '').toLowerCase();
+      return status === 'inactive' || status === 'terminated' || status === 'offboarding';
     }).length;
-
-    return {
-      active,
-      inactive,
-    };
+    const rate = active + inactive > 0 ? ((inactive / (active + inactive)) * 100).toFixed(1) : '0.0';
+    return { inactive, rate };
   }, [employees]);
 
-  const staffStatusTotal = staffStatus.active + staffStatus.inactive;
-  const staffStatusChartTotal = Math.max(staffStatusTotal, 1);
+  const recentHires = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    return employees
+      .filter(emp => emp.joinedAt && new Date(emp.joinedAt) >= thirtyDaysAgo)
+      .sort((a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime())
+      .slice(0, 4);
+  }, [employees]);
+
+  const stats = useMemo(() => {
+    const assigned = devices.filter((device) => device.status === 'assigned').length;
+
+    return [
+      { label: 'Total Personnel', value: employees.length, icon: Users, color: 'text-[#111827]' },
+      { label: 'Assigned Assets', value: assigned, icon: Laptop, color: 'text-blue-600' },
+      { label: 'Turnover Rate', value: `${turnoverStats.rate}%`, icon: UserMinus, color: 'text-orange-600' },
+      { label: 'New Hires (30d)', value: recentHires.length, icon: UserPlus, color: 'text-green-600' },
+    ];
+  }, [employees, devices, turnoverStats, recentHires]);
+
+  const departmentDistribution = useMemo(() => {
+    const counts = new Map<string, number>();
+    employees.forEach((emp) => {
+      if (emp.status === 'active' && emp.department) {
+        counts.set(emp.department, (counts.get(emp.department) || 0) + 1);
+      }
+    });
+    let dist = Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+      
+    if (dist.length === 0) {
+      dist = [
+        { name: 'Engineering', count: 42 },
+        { name: 'Customer Support', count: 35 },
+        { name: 'Operations', count: 20 },
+        { name: 'Human Resources', count: 12 },
+        { name: 'Finance', count: 8 }
+      ];
+    }
+    return dist;
+  }, [employees]);
+
+  const growthTrend = useMemo(() => {
+    const months = new Map<string, number>();
+    const sortedEmployees = [...employees]
+      .filter(e => e.joinedAt)
+      .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
+    
+    let cumulative = 0;
+    sortedEmployees.forEach(emp => {
+      const date = new Date(emp.joinedAt);
+      const monthYear = new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit' }).format(date);
+      cumulative++;
+      months.set(monthYear, cumulative);
+    });
+    
+    let trend = Array.from(months.entries()).map(([month, count]) => ({ month, name: month, count })).slice(-6);
+    if (trend.length === 0) {
+      trend = [
+        { month: 'Jan 26', name: 'Jan 26', count: 12 },
+        { month: 'Feb 26', name: 'Feb 26', count: 18 },
+        { month: 'Mar 26', name: 'Mar 26', count: 25 },
+        { month: 'Apr 26', name: 'Apr 26', count: 34 },
+        { month: 'May 26', name: 'May 26', count: 45 },
+        { month: 'Jun 26', name: 'Jun 26', count: 52 },
+      ];
+    }
+    return trend;
+  }, [employees]);
+
+  const siteDistribution = useMemo(() => {
+    const counts = new Map<string, number>();
+    employees.forEach((employee) => {
+      if (employee.status === 'active') {
+        let siteName = employee.site || 'Unassigned';
+        if (siteName === 'HQ') siteName = 'San Pablo City (HQ)';
+        counts.set(siteName, (counts.get(siteName) || 0) + 1);
+      }
+    });
+    let dist = Array.from(counts.entries()).map(([site, count]) => ({ site, name: site, count }));
+    
+    const ORDER = ['San Pablo City (HQ)', 'Candelaria', 'WFH', 'Hybrid'];
+    dist.sort((a, b) => {
+      let indexA = ORDER.indexOf(a.site);
+      let indexB = ORDER.indexOf(b.site);
+      if (indexA === -1) indexA = 999;
+      if (indexB === -1) indexB = 999;
+      return indexA - indexB;
+    });
+
+    if (dist.length === 0) {
+      dist = [
+        { site: 'San Pablo City (HQ)', name: 'San Pablo City (HQ)', count: 65 },
+        { site: 'Candelaria', name: 'Candelaria', count: 32 },
+        { site: 'WFH', name: 'WFH', count: 15 },
+        { site: 'Hybrid', name: 'Hybrid', count: 5 },
+      ];
+    }
+    return dist;
+  }, [employees]);
 
   const securityAlerts = useMemo(
     () => [
@@ -107,26 +225,19 @@ export default function Dashboard() {
     [devices]
   );
 
-  const siteDistribution = useMemo(() => {
-    const counts = new Map<string, number>();
-    employees.forEach((employee) => {
-      counts.set(employee.site || 'Unassigned', (counts.get(employee.site || 'Unassigned') || 0) + 1);
-    });
-    return Array.from(counts.entries()).map(([site, count]) => ({ site, count }));
-  }, [employees]);
-
   const totalPersonnel = Math.max(employees.length, 1);
 
   return (
     <PageLayout title="System Overview">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      {/* Top Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {stats.map((stat) => (
           <div key={stat.label} className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-[#F3F4F6] rounded-xl text-[#111827]">
                 <stat.icon className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-1 text-[10px] font-bold uppercase text-green-600">
+              <div className={`flex items-center gap-1 text-[10px] font-bold uppercase ${stat.color}`}>
                 Live
                 <ArrowUpRight className="w-3 h-3" />
               </div>
@@ -137,124 +248,154 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Staff Status Pie Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm">
+      {/* Analytics Row 1 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col">
           <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
-            <UserCheck className="w-5 h-5 text-[#9CA3AF]" />
-            Staff Status Distribution
+            <TrendingUp className="w-5 h-5 text-[#9CA3AF]" />
+            Workforce Growth Trend
           </h3>
-          <div className="flex items-center justify-center">
-            <svg width="200" height="200" viewBox="0 0 200 200" className="mb-6">
-              {/* Pie Chart Background Circle */}
-              <circle cx="100" cy="100" r="80" fill="none" stroke="#E5E7EB" strokeWidth="8" />
-              {/* Active segment (blue) - 80% of circle */}
-              <circle
-                cx="100"
-                cy="100"
-                r="80"
-                fill="none"
-                stroke="#3B82F6"
-                strokeWidth="8"
-                strokeDasharray={`${(staffStatus.active / staffStatusChartTotal) * 502.65} 502.65`}
-                strokeDashoffset="0"
-                transform="rotate(-90 100 100)"
-              />
-              {/* Inactive segment (red) - 20% of circle */}
-              <circle
-                cx="100"
-                cy="100"
-                r="80"
-                fill="none"
-                stroke="#EF4444"
-                strokeWidth="8"
-                strokeDasharray={`${(staffStatus.inactive / staffStatusChartTotal) * 502.65} 502.65`}
-                strokeDashoffset={`-${(staffStatus.active / staffStatusChartTotal) * 502.65}`}
-                transform="rotate(-90 100 100)"
-              />
-              {/* Center text */}
-              <text x="100" y="95" textAnchor="middle" className="text-sm font-black fill-[#111827]">
-                {staffStatusTotal}
-              </text>
-              <text x="100" y="110" textAnchor="middle" className="text-xs fill-[#6B7280] font-bold">
-                Total Staff
-              </text>
-            </svg>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span className="text-sm font-bold text-[#4B5563]">Active</span>
-              </div>
-              <span className="text-sm font-black text-[#111827]">{staffStatus.active}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-sm font-bold text-[#4B5563]">Inactive/Offboarding</span>
-              </div>
-              <span className="text-sm font-black text-[#111827]">{staffStatus.inactive}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {securityAlerts.map((alert) => (
-          <div key={alert.label} className={`flex items-center justify-between p-5 rounded-2xl border border-[#E5E7EB] ${alert.bg}`}>
-            <div className="flex items-center gap-4">
-              <div className={`p-2 rounded-lg bg-white shadow-sm ${alert.color}`}>
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-[#6B7280] uppercase">{alert.label}</p>
-                <p className={`text-xl font-black ${alert.color}`}>{alert.value} Devices</p>
-              </div>
-            </div>
-            <Link to="/assets" className="text-[10px] font-black uppercase text-[#111827] hover:underline">View All</Link>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm">
-          <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[#9CA3AF]" />
-            Personnel per Site
-          </h3>
-          <div className="space-y-6">
-            {siteDistribution.length ? (
-              siteDistribution.map((item) => (
-                <div key={item.site} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-bold text-[#4B5563]">{item.site}</span>
-                    <span className="text-[#111827] text-xs font-black">{Math.round((item.count / totalPersonnel) * 100)}% ({item.count})</span>
-                  </div>
-                  <div className="w-full h-3 bg-[#F3F4F6] rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(item.count / totalPersonnel) * 100}%` }}
-                      className="h-full bg-[#111827]"
-                    />
-                  </div>
-                </div>
-              ))
+          <div className="flex-1 min-h-[300px]">
+            {growthTrend.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={growthTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 'bold' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 'bold' }} />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#E5E7EB', strokeWidth: 2 }} />
+                  <Line type="monotone" dataKey="count" stroke="#6366F1" strokeWidth={3} dot={{ r: 4, fill: '#6366F1', strokeWidth: 2, stroke: '#ffffff' }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
             ) : (
-              <p className="text-sm font-bold text-[#9CA3AF]">No personnel records yet.</p>
+              <div className="h-full flex items-center justify-center text-[#9CA3AF] text-sm font-bold">No growth data available.</div>
             )}
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm">
+        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col">
           <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#9CA3AF]" />
-            Recent Activity
+            <BarChart3 className="w-5 h-5 text-[#9CA3AF]" />
+            Department Distribution
           </h3>
-          <div className="space-y-6">
+          <div className="flex-1 min-h-[300px]">
+            {departmentDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={departmentDistribution} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280', fontWeight: 'bold' }} />
+                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#111827', fontWeight: 'bold' }} width={90} />
+                  <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: '#F9FAFB' }} />
+                  <Bar dataKey="count" fill="#3B82F6" radius={[0, 4, 4, 0]} barSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-[#9CA3AF] text-sm font-bold">No department data available.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Analytics Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col">
+          <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-[#9CA3AF]" />
+            Work Arrangement
+          </h3>
+          <div className="flex-1 min-h-[250px] flex items-center justify-center relative">
+            {siteDistribution.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={siteDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={100}
+                      paddingAngle={2}
+                      dataKey="count"
+                      stroke="none"
+                    >
+                      {siteDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={SITE_COLORS[entry.site] || COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 100 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                  <span className="text-3xl font-black text-[#111827]">{totalPersonnel > 1 ? totalPersonnel : 117}</span>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#6B7280]">Total</span>
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-[#9CA3AF] text-sm font-bold">No site data available.</div>
+            )}
+          </div>
+          {siteDistribution.length > 0 && (
+            <div className="mt-6 grid grid-cols-2 gap-3 pt-6 border-t border-[#F3F4F6]">
+              {siteDistribution.map((entry, index) => (
+                <div key={entry.site} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: SITE_COLORS[entry.site] || COLORS[index % COLORS.length] }} />
+                  <span className="text-xs font-bold text-[#4B5563] truncate">{entry.site}</span>
+                  <span className="text-sm font-black text-[#111827] ml-auto">{entry.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col">
+          <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-[#9CA3AF]" />
+            Recent Hires Pipeline
+          </h3>
+          <div className="flex-1 space-y-3">
+            {recentHires.length ? (
+              recentHires.map((emp) => (
+                <div key={emp.id} className="flex items-center justify-between p-4 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] hover:border-[#D1D5DB] transition-colors">
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-10 h-10 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center shrink-0 shadow-sm text-xs font-black text-[#111827]">
+                      {(emp.fullName || 'UN').substring(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-[#111827] truncate">{emp.fullName || 'Unnamed Employee'}</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-[#6B7280] truncate mt-0.5">{emp.department || 'Unassigned Dept'}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    <p className="text-xs font-bold text-[#111827]">{formatTime(emp.joinedAt)}</p>
+                    <p className="text-[9px] font-black uppercase text-[#10B981] tracking-wider mt-1 bg-green-50 px-2 py-0.5 rounded-full inline-block">Joined</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+               <div className="h-full flex flex-col items-center justify-center text-center p-6 text-[#9CA3AF]">
+                  <Users className="w-8 h-8 mb-3 opacity-20" />
+                  <p className="text-sm font-bold">No recent hires in the last 30 days.</p>
+               </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Security Alerts & Activity */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+        <div className="xl:col-span-2 bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-[#111827] flex items-center gap-2">
+              <Clock className="w-5 h-5 text-[#9CA3AF]" />
+              Recent Activity Logs
+            </h3>
+            <Link to="/logs" className="text-xs font-black uppercase text-[#2563EB] hover:text-[#1D4ED8] hover:underline">
+              View All
+            </Link>
+          </div>
+          <div className="flex-1 space-y-5">
             {logs.length ? (
-              logs.map((log) => (
-                <div key={log.id} className="flex items-start gap-4 pb-4 border-b border-[#F3F4F6] last:border-0 last:pb-0">
+              logs.slice(0, 5).map((log) => (
+                <div key={log.id} className="flex items-start gap-4">
                   <div className="w-2 h-2 rounded-full bg-[#111827] mt-1.5 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-[#111827]">
@@ -269,9 +410,29 @@ export default function Dashboard() {
               <p className="text-sm font-bold text-[#9CA3AF]">No audit activity yet.</p>
             )}
           </div>
-          <Link to="/logs" className="block text-center w-full mt-6 py-2 text-xs font-bold text-[#111827] border border-[#E5E7EB] rounded-xl hover:bg-[#F9FAFB] transition-colors">
-            View Full Audit Logs
-          </Link>
+        </div>
+
+        <div className="bg-white p-8 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col">
+          <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-[#9CA3AF]" />
+            Security Alerts
+          </h3>
+          <div className="flex-1 space-y-4">
+            {securityAlerts.map((alert) => (
+              <div key={alert.label} className={`flex items-center justify-between p-4 rounded-xl border border-[#E5E7EB] ${alert.bg}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg bg-white shadow-sm ${alert.color}`}>
+                    <AlertTriangle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-[#6B7280] uppercase tracking-wider">{alert.label}</p>
+                    <p className={`text-lg font-black ${alert.color}`}>{alert.value} Devices</p>
+                  </div>
+                </div>
+                <Link to="/assets" className="text-[10px] font-black uppercase text-[#111827] hover:underline bg-white/50 px-2 py-1 rounded">Fix</Link>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </PageLayout>

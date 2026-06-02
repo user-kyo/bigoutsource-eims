@@ -1,27 +1,34 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Download, Filter, History, Loader2, Search } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { AlertCircle, History, Loader2, Search, ChevronRight, CheckCircle2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
 import { auditLogService } from '@/src/services/auditLogService';
+import { cn } from '@/src/lib/utils';
 
 function asArray(value: any) {
   return Array.isArray(value) ? value : [];
 }
 
-function formatDate(value?: string) {
-  if (!value) return 'Unknown';
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value));
+function formatDateToParts(value?: string) {
+  if (!value) return { date: 'Unknown', time: '' };
+  const d = new Date(value);
+  return {
+    date: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d),
+    time: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(d),
+  };
 }
 
-function actionLabel(action: string) {
-  return action.replace(/\./g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+function cleanString(str: string) {
+  if (!str) return '-';
+  const cleaned = str
+    .replace(/[._-]/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  if (cleaned === 'Employee Import Staging') {
+    return 'Import Edits';
+  }
+
+  return cleaned;
 }
 
 function formatFieldName(field: string) {
@@ -84,11 +91,7 @@ function actorLabel(log: any) {
   return log.userName || 'System';
 }
 
-function actorFilterValue(log: any) {
-  const name = actorLabel(log);
-  const email = log.userEmail && log.userEmail !== name ? ` (${log.userEmail})` : '';
-  return `${name}${email}`;
-}
+type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -96,7 +99,16 @@ export default function AuditLogs() {
   const [actionFilter, setActionFilter] = useState('All');
   const [entityFilter, setEntityFilter] = useState('All');
   const [userFilter, setUserFilter] = useState('All');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'createdAt', direction: 'desc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const recordsPerPage = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, actionFilter, entityFilter, userFilter, startDate, endDate, sortConfig]);
 
   useEffect(() => {
     let isMounted = true;
@@ -119,126 +131,259 @@ export default function AuditLogs() {
     };
   }, []);
 
-  const actionOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.action).filter(Boolean)))], [logs]);
-  const entityOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map((log) => log.entityType).filter(Boolean)))], [logs]);
-  const userOptions = useMemo(() => ['All', ...Array.from(new Set(logs.map(actorFilterValue)))], [logs]);
+  const actionOptions = useMemo(() => {
+    const actions = Array.from(new Set(logs.map((log) => cleanString(log.action)).filter(Boolean)));
+    actions.sort((a, b) => a.localeCompare(b));
+    return ['All', ...actions];
+  }, [logs]);
+
+  const entityOptions = useMemo(() => {
+    const entities = Array.from(new Set(logs.map((log) => cleanString(log.entityType)).filter(Boolean)));
+    entities.sort((a, b) => a.localeCompare(b));
+    return ['All', ...entities];
+  }, [logs]);
+
+  const userOptions = useMemo(() => {
+    const users = Array.from(new Set(logs.map(actorLabel).filter(Boolean)));
+    users.sort((a, b) => a.localeCompare(b));
+    return ['All', ...users];
+  }, [logs]);
 
   const filteredLogs = logs.filter((log) => {
-    const searchable = `${log.action} ${log.entityType} ${log.userEmail} ${log.userName} ${log.userRole} ${detailsText(log.details)}`.toLowerCase();
+    const searchable = `${cleanString(log.action)} ${cleanString(log.entityType)} ${log.userEmail} ${log.userName} ${log.userRole} ${detailsText(log.details)}`.toLowerCase();
     const matchesSearch = searchable.includes(search.toLowerCase());
-    const matchesAction = actionFilter === 'All' || log.action === actionFilter;
-    const matchesEntity = entityFilter === 'All' || log.entityType === entityFilter;
-    const matchesUser = userFilter === 'All' || actorFilterValue(log) === userFilter;
+    const matchesAction = actionFilter === 'All' || cleanString(log.action) === actionFilter;
+    const matchesEntity = entityFilter === 'All' || cleanString(log.entityType) === entityFilter;
+    const matchesUser = userFilter === 'All' || actorLabel(log) === userFilter;
 
-    return matchesSearch && matchesAction && matchesEntity && matchesUser;
+    let matchesDateRange = true;
+    if (startDate || endDate) {
+      const logDate = new Date(log.createdAt);
+      if (startDate && logDate < new Date(`${startDate}T00:00:00`)) matchesDateRange = false;
+      if (endDate && logDate > new Date(`${endDate}T23:59:59`)) matchesDateRange = false;
+    }
+
+    return matchesSearch && matchesAction && matchesEntity && matchesUser && matchesDateRange;
   });
 
-  const exportLogs = () => {
-    const rows = filteredLogs.map((log) => ({
-      Timestamp: formatDate(log.createdAt),
-      Operator: actorLabel(log),
-      'Operator Email': log.userEmail || 'System',
-      Action: actionLabel(log.action),
-      Entity: log.entityType,
-      'Entity ID': log.entityId,
-      Details: detailsText(log.details),
-      IP: log.ipAddress,
-    }));
+  const sortedLogs = useMemo(() => {
+    if (!sortConfig) return filteredLogs;
+    return [...filteredLogs].sort((a, b) => {
+      const direction = sortConfig.direction === 'asc' ? 1 : -1;
+      let valA = a[sortConfig.key];
+      let valB = b[sortConfig.key];
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Audit Logs');
-    XLSX.writeFile(wb, 'EIMS_Audit_Logs.xlsx');
-    toast.success('Audit logs exported');
+      if (sortConfig.key === 'actor') {
+        valA = actorLabel(a).toLowerCase();
+        valB = actorLabel(b).toLowerCase();
+      } else if (sortConfig.key === 'target') {
+        valA = (a.details?.fullName || a.details?.employeeNumber || a.entityType || '').toLowerCase();
+        valB = (b.details?.fullName || b.details?.employeeNumber || b.entityType || '').toLowerCase();
+      }
+
+      if (valA < valB) return -1 * direction;
+      if (valA > valB) return 1 * direction;
+      return 0;
+    });
+  }, [filteredLogs, sortConfig]);
+
+  const totalPages = Math.ceil(sortedLogs.length / recordsPerPage);
+  const pageStartIndex = (currentPage - 1) * recordsPerPage;
+  const pageEndIndex = pageStartIndex + recordsPerPage;
+  const currentLogs = sortedLogs.slice(pageStartIndex, pageEndIndex);
+
+  const hasPreviousPage = currentPage > 1;
+  const hasNextPage = currentPage < totalPages;
+
+  const toggleSort = (key: string) => {
+    setSortConfig((current) => {
+      if (current?.key === key) {
+        if (current.direction === 'asc') return { key, direction: 'desc' };
+        return null; // Reset to no sort
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const renderSortIcon = (key: string) => {
+    const isActiveSort = sortConfig?.key === key;
+    const SortIcon = isActiveSort ? (sortConfig.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+    return <SortIcon className={cn('h-3.5 w-3.5 shrink-0', isActiveSort ? 'text-[#111827]' : 'text-[#9CA3AF]')} />;
   };
 
   return (
-    <PageLayout title="System Audit Logs">
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3 flex-1">
-            <div className="relative flex-1 min-w-[260px] max-w-md">
-              <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2" />
+    <PageLayout title="System Audit Logs" contentClassName="w-full max-w-none">
+      <div className="flex flex-col gap-6 w-full">
+
+        {/* Filters and Search */}
+        <div className="bg-white p-4 rounded-2xl border border-[#E5E7EB] shadow-sm flex flex-col gap-4">
+          {/* Top Row: Search */}
+          <div className="relative w-full">
+            <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search logs..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-[#2563EB] focus:border-transparent outline-none transition-all"
+            />
+          </div>
+          {/* Bottom Row: Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+            <div className="flex items-center gap-2 bg-white border border-[#E5E7EB] rounded-xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-[#2563EB] focus-within:border-transparent transition-all shadow-sm w-full min-w-0">
               <input
-                type="text"
-                placeholder="Search logs by action, user, record, or field..."
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm focus:ring-2 focus:ring-[#111827] outline-none"
+                type={startDate ? "date" : "text"}
+                placeholder="Start Date"
+                onFocus={(e) => (e.target.type = "date")}
+                onBlur={(e) => (!e.target.value ? (e.target.type = "text") : null)}
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-transparent text-sm font-bold text-[#4B5563] outline-none min-w-0"
+              />
+              <span className="text-[#9CA3AF] font-bold shrink-0">-</span>
+              <input
+                type={endDate ? "date" : "text"}
+                placeholder="End Date"
+                onFocus={(e) => (e.target.type = "date")}
+                onBlur={(e) => (!e.target.value ? (e.target.type = "text") : null)}
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full bg-transparent text-sm font-bold text-[#4B5563] outline-none min-w-0"
               />
             </div>
-            <FilterSelect label="Action" value={actionFilter} onChange={setActionFilter} options={actionOptions} />
-            <FilterSelect label="Entity" value={entityFilter} onChange={setEntityFilter} options={entityOptions} />
-            <FilterSelect label="User" value={userFilter} onChange={setUserFilter} options={userOptions} />
+            <FilterDropdown label="Action" value={actionFilter} onChange={setActionFilter} options={actionOptions} />
+            <FilterDropdown label="Entity" value={entityFilter} onChange={setEntityFilter} options={entityOptions} />
+            <FilterDropdown label="User" value={userFilter} onChange={setUserFilter} options={userOptions} />
           </div>
-          <button
-            onClick={exportLogs}
-            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#111827] hover:bg-[#F9FAFB] shadow-sm"
-          >
-            <Download className="w-4 h-4" />
-            Export Logs
-          </button>
         </div>
 
-        <div className="bg-[#FEF2F2] border border-[#FEE2E2] p-4 rounded-xl flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-[#EF4444] mt-0.5" />
+        {/* Security Notice */}
+        <div className="bg-[#FEF2F2] border border-[#FEE2E2] p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-[#EF4444] mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-bold text-[#991B1B]">Security Notice</p>
-            <p className="text-xs text-[#B91C1C]">Audit logs show employee additions, edits, and other privileged activity from the database.</p>
+            <p className="text-sm font-black text-[#991B1B]">Security Notice</p>
+            <p className="text-xs font-medium text-[#B91C1C] mt-0.5">Audit logs display privileged system activities including edits, additions, and access logs. These records are immutable.</p>
           </div>
         </div>
 
-        <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
-          <table className="w-full min-w-[900px] table-fixed text-left border-collapse">
-            <colgroup>
-              <col className="w-[16%]" />
-              <col className="w-[22%]" />
-              <col className="w-[13%]" />
-              <col className="w-[17%]" />
-              <col className="w-[32%]" />
-            </colgroup>
-            <thead>
-              <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Timestamp</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Operator</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Action</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Target</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F3F4F6]">
-              {filteredLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-[#F9FAFB] transition-colors align-top">
-                  <td className="px-6 py-4 text-xs font-bold text-[#111827] whitespace-nowrap">{formatDate(log.createdAt)}</td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-[#111827]">{actorLabel(log)}</p>
-                    <p className="text-[10px] text-[#6B7280] uppercase font-bold tracking-tighter break-all">ID: {log.userId || 'n/a'}</p>
-                    {log.userEmail && <p className="text-[10px] text-[#9CA3AF] mt-1">{log.userEmail}</p>}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter bg-[#F3F4F6] text-[#4B5563]">
-                      {actionLabel(log.action)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-[#111827]">{log.details?.fullName || log.details?.employeeNumber || log.entityType}</p>
-                    <p className="text-[10px] text-[#9CA3AF] mt-1">Entity: {log.entityType}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <AuditDetails details={log.details} />
-                  </td>
+        {/* Logs Table */}
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px] text-left border-collapse">
+              <thead>
+                <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
+                    <button type="button" onClick={() => toggleSort('createdAt')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                      Timestamp {renderSortIcon('createdAt')}
+                    </button>
+                  </th>
+                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%] h-14">
+                    <button type="button" onClick={() => toggleSort('actor')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                      Operator {renderSortIcon('actor')}
+                    </button>
+                  </th>
+                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
+                    <button type="button" onClick={() => toggleSort('action')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                      Action {renderSortIcon('action')}
+                    </button>
+                  </th>
+                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[20%] h-14">
+                    <button type="button" onClick={() => toggleSort('target')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                      Target Entity {renderSortIcon('target')}
+                    </button>
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%]">Details</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#E5E7EB]">
+                {currentLogs.map((log) => {
+                  const { date, time } = formatDateToParts(log.createdAt);
+                  return (
+                    <tr key={log.id} className="hover:bg-[#F9FAFB] transition-colors align-top group">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="text-sm font-bold text-[#111827]">{date}</p>
+                        <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider mt-1">{time}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center text-[10px] font-black text-[#111827] shrink-0 group-hover:border-[#D1D5DB] transition-colors">
+                            {actorLabel(log).substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-[#111827] truncate">{actorLabel(log)}</p>
+                            {log.userEmail && <p className="text-xs font-semibold text-[#6B7280] truncate mt-0.5">{log.userEmail}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white border border-[#E5E7EB] text-[#4B5563] shadow-sm">
+                          {cleanString(log.action)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-bold text-[#111827] truncate">{log.details?.fullName || log.details?.employeeNumber || cleanString(log.entityType)}</p>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-[#9CA3AF] mt-1">{cleanString(log.entityType)}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <AuditDetails details={log.details} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-          {(isLoading || filteredLogs.length === 0) && (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-[#F3F4F6] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          {(isLoading || sortedLogs.length === 0) && (
+            <div className="p-16 text-center flex flex-col items-center">
+              <div className="w-16 h-16 bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl flex items-center justify-center mb-5 shadow-sm">
                 {isLoading ? <Loader2 className="w-8 h-8 text-[#9CA3AF] animate-spin" /> : <History className="w-8 h-8 text-[#D1D5DB]" />}
               </div>
-              <h3 className="text-lg font-bold text-[#111827]">{isLoading ? 'Loading audit logs' : 'No audit logs found'}</h3>
-              <p className="text-sm text-[#6B7280]">{isLoading ? 'Fetching activity from the database.' : 'Try changing the filters or search term.'}</p>
+              <h3 className="text-lg font-black text-[#111827]">{isLoading ? 'Loading logs...' : 'No audit logs found'}</h3>
+              <p className="text-sm font-medium text-[#6B7280] mt-1 max-w-sm">
+                {isLoading ? 'Fetching the latest system activity from the database.' : 'Try adjusting your search terms or filters to find what you are looking for.'}
+              </p>
+            </div>
+          )}
+
+          {sortedLogs.length > 0 && !isLoading && (
+            <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">
+                  Total Logs: {sortedLogs.length}
+                </p>
+                <p className="mt-1 text-xs font-black text-[#111827]">
+                  Page {currentPage} of {totalPages || 1}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={!hasPreviousPage}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  className={cn(
+                    'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                    hasPreviousPage
+                      ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                      : 'text-[#9CA3AF] cursor-not-allowed'
+                  )}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={!hasNextPage}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  className={cn(
+                    'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                    hasNextPage
+                      ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                      : 'text-[#9CA3AF] cursor-not-allowed'
+                  )}
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -251,26 +396,27 @@ function AuditDetails({ details }: { details: any }) {
   const items = detailsItems(details);
 
   if (!items.length) {
-    return <p className="text-sm font-medium text-[#9CA3AF]">No details recorded</p>;
+    return (
+      <div className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-[#F9FAFB] text-[#9CA3AF] border border-[#F3F4F6]">
+        No details
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-2 w-full">
+    <div className="flex flex-col gap-2.5 w-full max-w-sm">
       {items.map((item: any, index: number) => (
-        <div key={index} className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3">
+        <div key={index} className="flex flex-col gap-1">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#6B7280]">{item.field}</span>
           {'to' in item ? (
-            <div className="flex flex-col gap-1 text-sm">
-              <span className="font-black text-[#111827]">{item.field}</span>
-              <div className="flex flex-wrap items-center gap-2 text-[#6B7280] min-w-0">
-                <span className="line-through text-red-500 break-all min-w-0">{item.from}</span>
-                <span className="font-bold text-[#9CA3AF]">-&gt;</span>
-                <span className="font-bold text-green-600 break-all min-w-0">{item.to}</span>
-              </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold text-[#111827] truncate flex-1">{item.from}</span>
+              <span className="text-[#D1D5DB] shrink-0 font-black">-&gt;</span>
+              <span className="font-bold text-[#111827] truncate flex-1">{item.to}</span>
             </div>
           ) : (
-            <div className="flex flex-col gap-1 text-sm">
-              <span className="font-black text-[#111827]">{item.field}</span>
-              <span className="text-[#4B5563] font-medium break-all">{item.value}</span>
+            <div className="text-xs font-bold text-[#111827] break-all">
+              {item.value}
             </div>
           )}
         </div>
@@ -279,7 +425,7 @@ function AuditDetails({ details }: { details: any }) {
   );
 }
 
-function FilterSelect({
+function FilterDropdown({
   label,
   value,
   onChange,
@@ -290,20 +436,60 @@ function FilterSelect({
   onChange: (value: string) => void;
   options: string[];
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const displayLabel = value === 'All' ? `All ${label === 'Entity' ? 'Entities' : label + 's'}` : value;
+
   return (
-    <label className="flex items-center gap-2">
-      <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#4B5563] outline-none focus:ring-2 focus:ring-[#111827]"
+    <div className="relative w-full" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="flex min-w-[150px] w-full items-center justify-between gap-3 rounded-xl border border-[#E5E7EB] bg-white px-3.5 py-2 text-left text-sm font-bold text-[#4B5563] outline-none transition-all hover:border-[#CBD5E1] hover:bg-[#F9FAFB] focus:ring-2 focus:ring-[#2563EB] shadow-sm"
       >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option === 'All' ? `All ${label}s` : option}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span className="truncate">{displayLabel}</span>
+        <ChevronRight className={cn('h-4 w-4 shrink-0 transition-transform', isOpen && 'rotate-90')} />
+      </button>
+      {isOpen && (
+        <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-full overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-xl shadow-[#11182714]">
+          <div className="max-h-64 overflow-y-auto py-1">
+            {options.map((option) => {
+              const isSelected = value === option;
+              const optionDisplay = option === 'All' ? `All ${label === 'Entity' ? 'Entities' : label + 's'}` : option;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left transition-colors hover:bg-[#F3F4F6]',
+                    isSelected ? 'bg-[#EFF6FF]' : ''
+                  )}
+                  onClick={() => {
+                    onChange(option);
+                    setIsOpen(false);
+                  }}
+                >
+                  <span className={cn('truncate text-sm font-bold', isSelected ? 'text-[#2563EB]' : 'text-[#4B5563]')}>
+                    {optionDisplay}
+                  </span>
+                  {isSelected && <CheckCircle2 className="h-4 w-4 shrink-0 text-[#2563EB]" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

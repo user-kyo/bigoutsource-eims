@@ -1131,7 +1131,7 @@ export default function Directory() {
           <div className="flex h-[800px] max-h-[94vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-2xl border border-[#D1D5DB] bg-[#F8FAFC] shadow-2xl shadow-[#11182733]">
             <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] bg-white px-6 py-5">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#2563EB]">HR Onboarding Workflow</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#2563EB]">Onboarding Workflow</p>
                 <h2 className="mt-1 text-xl font-black text-[#111827]">Add Employee Record</h2>
               </div>
               <button type="button" onClick={closeModal} className="rounded-xl p-2 text-[#9CA3AF] transition-all hover:bg-[#F3F4F6] hover:text-[#111827]">
