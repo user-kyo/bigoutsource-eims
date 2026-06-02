@@ -1,5 +1,6 @@
 import { AccountModel } from '../models/account.model.js';
 import { AuditLogModel } from '../models/auditLog.model.js';
+import { EmployeeModel } from '../models/employee.model.js';
 import { AppError } from '../utils/apiResponse.js';
 import { auditActor } from '../utils/auditActor.js';
 import { sanitizeDepartmentCode, suggestDepartmentCode } from '../utils/employeeIdentity.js';
@@ -54,6 +55,65 @@ export const AccountService = {
     });
 
     return account;
+  },
+
+  async update(id, data, user, meta = {}) {
+    const before = await AccountModel.findById(id);
+    if (!before) throw new AppError('Account not found', 404);
+
+    const name = String(data.name || '').trim();
+    if (!name) throw new AppError('name is required', 400);
+
+    const existingName = await AccountModel.findByName(name);
+    if (existingName && existingName.id !== id) {
+      throw new AppError('Department name already exists. Enter a unique name.', 409);
+    }
+
+    const account = await AccountModel.update(id, { name });
+    if (!account) throw new AppError('Account not found', 404);
+
+    if (before.name !== account.name) {
+      const employees = await EmployeeModel.findAll();
+      const assignedEmployees = employees.filter((employee) => employee.accountAssignment === before.name);
+      await Promise.all(assignedEmployees.map((employee) => EmployeeModel.update(employee.id, { accountAssignment: account.name })));
+    }
+
+    await AuditLogModel.create({
+      ...auditActor(user),
+      action: 'account.update',
+      entityType: 'accounts',
+      entityId: account.id,
+      details: {
+        from: { name: before.name },
+        to: { name: account.name },
+      },
+      ipAddress: meta.ipAddress,
+    });
+
+    return account;
+  },
+
+  async remove(id, user, meta = {}) {
+    const account = await AccountModel.findById(id);
+    if (!account) throw new AppError('Account not found', 404);
+
+    const employees = await EmployeeModel.findAll();
+    const assignedEmployees = employees.filter((employee) => employee.accountAssignment === account.name);
+    if (assignedEmployees.length > 0) {
+      throw new AppError('Move or delete employees assigned to this department before deleting it.', 400);
+    }
+
+    const removed = await AccountModel.remove(id);
+    if (!removed) throw new AppError('Account not found', 404);
+
+    await AuditLogModel.create({
+      ...auditActor(user),
+      action: 'account.delete',
+      entityType: 'accounts',
+      entityId: id,
+      details: { name: account.name, accountType: account.accountType, departmentCode: account.departmentCode },
+      ipAddress: meta.ipAddress,
+    });
   },
 
   touch(id) {
