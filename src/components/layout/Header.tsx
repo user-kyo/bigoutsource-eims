@@ -1,10 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, Loader2, ShieldAlert, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { settingsService } from '@/src/services/settingsService';
 import { userService } from '@/src/services/userService';
 import { AppUser } from '@/src/types';
+
+const SEEN_PENDING_REGISTRATIONS_KEY = 'eims_seen_pending_registration_ids';
+const NOTIFICATION_REFRESH_MS = 10000;
+
+function readSeenPendingRegistrationIds() {
+  try {
+    const saved = localStorage.getItem(SEEN_PENDING_REGISTRATIONS_KEY);
+    const ids = saved ? JSON.parse(saved) : [];
+    return new Set(Array.isArray(ids) ? ids.map(String) : []);
+  } catch (error) {
+    return new Set<string>();
+  }
+}
+
+function saveSeenPendingRegistrationIds(ids: Set<string>) {
+  localStorage.setItem(SEEN_PENDING_REGISTRATIONS_KEY, JSON.stringify(Array.from(ids)));
+}
 
 export function Header({ title }: { title: string }) {
   const { user } = useAuth();
@@ -47,6 +65,8 @@ function NotificationBell() {
   const [isLoading, setIsLoading] = useState(false);
   const [notifyRegistrationAttempts, setNotifyRegistrationAttempts] = useState(false);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [seenPendingIds, setSeenPendingIds] = useState<Set<string>>(() => readSeenPendingRegistrationIds());
+  const [activeNotificationIds, setActiveNotificationIds] = useState<Set<string>>(new Set());
 
   const isSuperAdmin = user?.role === 'super_admin';
 
@@ -55,12 +75,34 @@ function NotificationBell() {
     [users]
   );
 
-  const unreadCount = isSuperAdmin && notifyRegistrationAttempts ? pendingUsers.length : 0;
+  const unreadPendingUsers = useMemo(
+    () => pendingUsers.filter((account) => !seenPendingIds.has(String(account.uid))),
+    [pendingUsers, seenPendingIds]
+  );
+
+  const unreadCount = isSuperAdmin && notifyRegistrationAttempts ? unreadPendingUsers.length : 0;
+
+  const openNotifications = () => {
+    setIsOpen(true);
+
+    if (!unreadPendingUsers.length) {
+      setActiveNotificationIds(new Set());
+      return;
+    }
+
+    const unreadIds = new Set(unreadPendingUsers.map((account) => String(account.uid)));
+    const nextSeenIds = new Set(seenPendingIds);
+    unreadIds.forEach((id) => nextSeenIds.add(id));
+    saveSeenPendingRegistrationIds(nextSeenIds);
+    setSeenPendingIds(nextSeenIds);
+    setActiveNotificationIds(unreadIds);
+  };
 
   useEffect(() => {
     if (!isSuperAdmin) {
       setNotifyRegistrationAttempts(false);
       setUsers([]);
+      setActiveNotificationIds(new Set());
       return;
     }
 
@@ -86,7 +128,7 @@ function NotificationBell() {
     }
 
     loadNotifications();
-    const intervalId = window.setInterval(loadNotifications, 60000);
+    const intervalId = window.setInterval(loadNotifications, NOTIFICATION_REFRESH_MS);
 
     return () => {
       isMounted = false;
@@ -98,7 +140,7 @@ function NotificationBell() {
     <>
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={openNotifications}
         className="relative rounded-full p-2 text-[#4B5563] transition-colors hover:bg-[#F3F4F6] hover:text-[#111827]"
         aria-label="Open notifications"
       >
@@ -110,9 +152,22 @@ function NotificationBell() {
         )}
       </button>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end bg-[#111827]/30 px-4 py-20 backdrop-blur-sm sm:px-8">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-start justify-end bg-[#111827]/30 px-4 py-20 sm:px-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
+          <motion.div
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl"
+            initial={{ opacity: 0, x: 24, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 24, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+          >
             <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] px-5 py-4">
               <div>
                 <h2 className="text-base font-black text-[#111827]">Notifications</h2>
@@ -142,13 +197,33 @@ function NotificationBell() {
               ) : pendingUsers.length > 0 ? (
                 <div className="space-y-3">
                   {pendingUsers.map((account) => (
-                    <div key={account.uid} className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                    <div
+                      key={account.uid}
+                      className={`rounded-xl border p-4 transition-colors ${
+                        activeNotificationIds.has(String(account.uid))
+                          ? 'border-amber-200 bg-amber-50 shadow-sm'
+                          : 'border-[#E5E7EB] bg-white'
+                      }`}
+                    >
                       <div className="flex items-start gap-3">
-                        <div className="rounded-xl bg-white p-2 text-amber-700">
+                        <div
+                          className={`rounded-xl p-2 ${
+                            activeNotificationIds.has(String(account.uid))
+                              ? 'bg-white text-amber-700'
+                              : 'bg-[#F9FAFB] text-[#6B7280]'
+                          }`}
+                        >
                           <ShieldAlert className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-black text-[#111827]">Account request pending</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-black text-[#111827]">Account request pending</p>
+                            {activeNotificationIds.has(String(account.uid)) && (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700">
+                                New
+                              </span>
+                            )}
+                          </div>
                           <p className="mt-1 truncate text-xs font-bold text-[#6B7280]">{account.fullName || account.email}</p>
                           <p className="mt-0.5 truncate text-[11px] font-bold text-[#9CA3AF]">{account.email}</p>
                         </div>
@@ -172,9 +247,10 @@ function NotificationBell() {
                 </Link>
               </div>
             )}
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
