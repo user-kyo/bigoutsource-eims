@@ -210,9 +210,6 @@ export default function Dashboard() {
   const growthTrend = useMemo(() => {
     const months = new Map<string, number>();
     const sortedEmployees = [...employees]
-      .filter(e => e.joinedAt)
-      .sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
-
       .filter(e => e.createdAt || e.created_at)
       .sort((a, b) => {
         const aDate = new Date(a.createdAt || a.created_at).getTime();
