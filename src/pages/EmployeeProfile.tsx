@@ -139,30 +139,49 @@ function parseEmployeeName(fullName = '') {
 
   if (name.includes(',')) {
     const [lastName, rest] = name.split(',').map(s => s.trim());
-    const restParts = rest.split(/\s+/).filter(Boolean);
-    if (restParts.length === 1) return { firstName: restParts[0], middleName: '', lastName };
+    const restParts = rest.split(/ +/).filter(Boolean);
+    if (restParts.length === 1) {
+      return { 
+        firstName: restParts[0].replace(/\u00A0/g, ' '), 
+        middleName: '', 
+        lastName: lastName.replace(/\u00A0/g, ' ') 
+      };
+    }
     return {
-      firstName: restParts[0],
-      middleName: restParts.slice(1).join(' '),
-      lastName
+      firstName: restParts[0].replace(/\u00A0/g, ' '),
+      middleName: restParts.slice(1).join(' ').replace(/\u00A0/g, ' '),
+      lastName: lastName.replace(/\u00A0/g, ' ')
     };
   }
 
-  const parts = name.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return { firstName: parts[0], middleName: '', lastName: '' };
-  if (parts.length === 2) return { firstName: parts[0], middleName: '', lastName: parts[1] };
+  const parts = name.split(/ +/).filter(Boolean);
+  
+  let firstName = '';
+  let middleName = '';
+  let lastName = '';
+
+  if (parts.length === 1) {
+    firstName = parts[0];
+  } else if (parts.length === 2) {
+    firstName = parts[0];
+    lastName = parts[1];
+  } else {
+    firstName = parts[0];
+    middleName = parts.slice(1, -1).join(' ');
+    lastName = parts[parts.length - 1];
+  }
 
   return {
-    firstName: parts[0],
-    middleName: parts.slice(1, -1).join(' '),
-    lastName: parts[parts.length - 1],
+    firstName: firstName.replace(/\u00A0/g, ' '),
+    middleName: middleName.replace(/\u00A0/g, ' '),
+    lastName: lastName.replace(/\u00A0/g, ' '),
   };
 }
 
 function formatEmployeeName(firstName = '', middleName = '', lastName = '') {
-  const first = String(firstName || '').trim();
-  const middle = String(middleName || '').trim();
-  const last = String(lastName || '').trim();
+  const first = String(firstName || '').trim().replace(/ /g, '\u00A0');
+  const middle = String(middleName || '').trim().replace(/ /g, '\u00A0');
+  const last = String(lastName || '').trim().replace(/ /g, '\u00A0');
   return [first, middle, last].filter(Boolean).join(' ');
 }
 
@@ -171,15 +190,19 @@ function sanitizeNamePart(value = '') {
 }
 
 function generatedPreview(fullName = '', account?: AccountOption) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  const first = sanitizeNamePart(parts[0] || '');
-  const last = sanitizeNamePart(parts.length > 1 ? parts[parts.length - 1] : '');
-  const middleInitials = parts
-    .slice(1, -1)
+  const nameParts = parseEmployeeName(fullName);
+  const firstRaw = String(nameParts.firstName || '');
+  
+  const firstInitials = firstRaw
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
     .map((part) => sanitizeNamePart(part).charAt(0))
     .join('');
+
+  const last = sanitizeNamePart(nameParts.lastName || '');
   const code = account?.departmentCode || '';
-  const identifier = `${first.charAt(0)}${middleInitials}${last}`;
+  const identifier = `${firstInitials}${last}`;
   const domain = account?.accountType === 'internal' ? 'com' : ['hc', 'utd'].includes(code) ? 'team' : 'ph';
 
   return {
@@ -251,7 +274,7 @@ function normalizeEmployee(emp: any): EmployeeForm {
 
   return {
     employeeNumber: emp?.employeeNumber || emp?.employeeId || '',
-    fullName,
+    fullName: fullName.replace(/\u00A0/g, ' '),
     firstName: nameParts.firstName,
     middleName: nameParts.middleName,
     lastName: nameParts.lastName,
@@ -496,7 +519,7 @@ export default function EmployeeProfile() {
 
   const pageTitle = employee.fullName ? `Profile: ${employee.fullName}` : 'Employee Profile';
   const selectedAccount = accounts.find((account) => account.name === form.accountAssignment);
-  const preview = generatedPreview(form.fullName, selectedAccount);
+  const preview = generatedPreview(formatEmployeeName(form.firstName, form.middleName, form.lastName), selectedAccount);
   const accountBasedPreviewPlaceholder = selectedAccount
     ? 'Generated after name is entered'
     : 'Generated after name and department are entered';
