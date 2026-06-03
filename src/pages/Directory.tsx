@@ -720,6 +720,9 @@ export default function Directory() {
     if ((requireAll || step === 0) && !form.lastName.trim()) {
       errors.lastName = 'Enter the employee last name.';
     }
+    if ((requireAll || step === 0) && form.phone && !/^\d+$/.test(form.phone)) {
+      errors.phone = 'Please enter numbers only.';
+    }
     if ((requireAll || step === 1) && !form.accountAssignment.trim()) {
       errors.accountAssignment = 'Select an account or department before generating access.';
     }
@@ -1199,8 +1202,20 @@ export default function Directory() {
 
                       <SectionCard title="Contact Details" eyebrow="Optional">
                         <div className="grid grid-cols-1 gap-4">
-                          <Field label="Phone Number">
-                            <Input value={form.phone} onChange={(value) => updateForm('phone', value)} placeholder="e.g. 09123456789" />
+                          <Field label="Phone Number" error={formErrors.phone}>
+                            <Input 
+                              value={form.phone} 
+                              onChange={(value) => {
+                                if (!/^\d*$/.test(value)) {
+                                  setFormErrors((current) => ({ ...current, phone: 'Please enter numbers only.' }));
+                                  setForm((current) => ({ ...current, phone: value.replace(/\D/g, '') }));
+                                } else {
+                                  updateForm('phone', value);
+                                }
+                              }} 
+                              placeholder="e.g. 09123456789" 
+                              error={Boolean(formErrors.phone)} 
+                            />
                           </Field>
                           <Field label="Address">
                             <Input value={form.address} onChange={(value) => updateForm('address', value)} placeholder="e.g. 123 Main St, City" />
