@@ -227,7 +227,7 @@ function normalizeEmployee(emp: any): EmployeeRecord | null {
     id: emp.id || emp.employeeId || emp.employeeNumber || crypto.randomUUID(),
     employeeId: emp.employeeId || emp.employeeNumber || '',
     employeeNumber: emp.employeeNumber,
-    fullName: emp.fullName || '',
+    fullName: String(emp.fullName || '').replace(/\u00A0/g, ' '),
     phone: emp.phone || '',
     address: emp.address || '',
     siteId: emp.siteId || '',
@@ -319,18 +319,23 @@ function suggestDepartmentCode(name = '') {
 }
 
 function generatedPreview(form: AddEmployeeForm, account?: AccountOption) {
-  const first = sanitizeNamePart(form.firstName);
-  const middleInitials = form.middleName
+  const firstRaw = String(form.firstName || '');
+  const firstForLms = sanitizeNamePart(firstRaw);
+  
+  const firstInitials = firstRaw
     .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
     .map((part) => sanitizeNamePart(part).charAt(0))
     .join('');
+
   const last = sanitizeNamePart(form.lastName);
   const code = account?.departmentCode || suggestDepartmentCode(account?.name || '');
-  const identifier = `${first.charAt(0)}${middleInitials}${last}`;
+  const identifier = `${firstInitials}${last}`;
   const domain = account?.accountType === 'internal' ? 'com' : ['hc', 'utd'].includes(code) ? 'team' : 'ph';
 
   return {
-    lmsAccount: first && last ? `${first}.${last}` : '',
+    lmsAccount: firstForLms && last ? `${firstForLms}.${last}` : '',
     boEmail: identifier && code ? `${identifier}.${code}@bigoutsource.${domain}` : '',
     pcName: identifier && code ? `${code}-${identifier}` : '',
   };
@@ -801,7 +806,11 @@ export default function Directory() {
         firstName: form.firstName.trim(),
         middleName: form.middleName.trim() || undefined,
         lastName: form.lastName.trim(),
-        fullName: [form.firstName.trim(), form.middleName.trim(), form.lastName.trim()].filter(Boolean).join(' '),
+        fullName: [
+          form.firstName.trim().replace(/ /g, '\u00A0'),
+          form.middleName.trim().replace(/ /g, '\u00A0'),
+          form.lastName.trim().replace(/ /g, '\u00A0')
+        ].filter(Boolean).join(' '),
         accountAssignment: form.accountAssignment.trim(),
         phone: form.phone.trim() || undefined,
         address: form.address.trim() || undefined,
