@@ -42,7 +42,12 @@ export default function Assets() {
       setIsLoading(true);
       try {
         const result = await deviceService.list();
-        if (isMounted) setDevices(asArray(result));
+        if (isMounted) {
+          const activeDevices = asArray(result).filter(
+            (device: any) => device.assigneeStatus === 'active' && !device.isArchived
+          );
+          setDevices(activeDevices);
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }

@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   User,
   X,
+  Undo2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
@@ -295,6 +296,9 @@ export default function EmployeeProfile() {
   const [isEsetDropdownOpen, setIsEsetDropdownOpen] = useState(false);
   const [isActivityWatchDropdownOpen, setIsActivityWatchDropdownOpen] = useState(false);
   const [visibleLogsCount, setVisibleLogsCount] = useState(3);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [undoTargetLog, setUndoTargetLog] = useState<any | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
   const canManageEmployee = user?.role !== 'viewer';
 
   const missingDataStatus = useMemo(() => {
@@ -359,7 +363,31 @@ export default function EmployeeProfile() {
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, refreshTrigger]);
+
+  const handleUndo = (log: any) => {
+    if (!log.action.endsWith('.update')) {
+      toast.error('Only update actions can be undone.');
+      return;
+    }
+    setUndoTargetLog(log);
+  };
+
+  const confirmUndo = async () => {
+    if (!undoTargetLog) return;
+    setIsUndoing(true);
+    const loadingToast = toast.loading('Undoing action...');
+    try {
+      await auditLogService.undo(undoTargetLog.id);
+      toast.success('Action successfully undone.', { id: loadingToast });
+      setRefreshTrigger((prev) => prev + 1);
+      setUndoTargetLog(null);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to undo action', { id: loadingToast });
+    } finally {
+      setIsUndoing(false);
+    }
+  };
 
   const updateForm = (field: keyof EmployeeForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1019,11 +1047,26 @@ export default function EmployeeProfile() {
                           className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group"
                         >
                           {/* Timeline node */}
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-indigo-100 text-indigo-600 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                          <Clock className="w-4 h-4" />
-                        </div>
+                          <div className="flex flex-col items-center gap-2 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-indigo-100 text-indigo-600 shadow">
+                              <Clock className="w-4 h-4" />
+                            </div>
+                            {log.action.endsWith('.update') && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUndo(log);
+                                }}
+                                className="p-1.5 text-[#9CA3AF] hover:text-[#2563EB] hover:bg-[#EFF6FF] rounded-full transition-colors bg-white shadow-sm border border-[#E5E7EB] group/undo"
+                                title="Undo Action"
+                              >
+                                <Undo2 className="w-3.5 h-3.5 transition-transform group-hover/undo:-rotate-45" />
+                              </button>
+                            )}
+                          </div>
 
-                        {/* Card */}
+                          {/* Card */}
                         <div className="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
                           <div className="flex flex-col gap-1 mb-3">
                             <div className="flex items-center justify-between">
@@ -1198,6 +1241,70 @@ export default function EmployeeProfile() {
                   : 'Confirm Archive'}
               </button>
             </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {undoTargetLog && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-xs"
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="w-full max-w-md bg-white rounded-3xl border border-[#E5E7EB] shadow-2xl p-6"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Undo2 className="w-6 h-6" />
+                </div>
+
+                <div className="flex-1">
+                  <h3 className="text-lg font-black text-[#111827]">
+                    Undo Revert Action
+                  </h3>
+
+                  <p className="mt-2 text-sm text-[#6B7280] leading-relaxed">
+                    Are you sure you want to revert this{' '}
+                    <span className="font-bold text-[#111827]">
+                      {actionLabel(undoTargetLog.action).toLowerCase()}
+                    </span>{' '}
+                    action? This will restore the fields to their previous values.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setUndoTargetLog(null)}
+                  disabled={isUndoing}
+                  className="px-4 py-2.5 border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#4B5563] hover:text-[#111827] disabled:opacity-50 transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmUndo}
+                  disabled={isUndoing}
+                  className="flex items-center gap-2 px-4 py-2.5 text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl text-sm font-bold disabled:opacity-50 transition-colors"
+                >
+                  {isUndoing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Undo2 className="w-4 h-4" />
+                  )}
+                  Confirm Undo
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
