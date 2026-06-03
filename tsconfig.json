@@ -22,5 +22,9 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "temp_profile.tsx",
+    "temp_profile_clean.tsx"
+  ]
 }

@@ -20,6 +20,7 @@ function toDevice(employee) {
     assigneeId: employee.id,
     assigneeName: employee.fullName,
     assigneeStatus: employee.status,
+    assigneeAccount: employee.accountAssignment || employee.account || '',
     isArchived: employee.isArchived,
     createdAt: employee.createdAt,
     updatedAt: employee.updatedAt,

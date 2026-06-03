@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Laptop, Database, Cpu, Wifi, Key, ExternalLink, ShieldCheck, Search, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Laptop, Database, Cpu, Wifi, Key, ExternalLink, ShieldCheck, Search, ArrowUp, ArrowDown, ArrowUpDown, ChevronRight, CheckCircle2, Edit2, Save, X, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
 import { Pagination } from '@/src/components/Pagination';
 import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import { motion, AnimatePresence } from 'motion/react';
 import { deviceService } from '@/src/services/deviceService';
+import { accountService } from '@/src/services/accountService';
+import { AccountFilterDropdown, AccountOption, normalizeAccountList } from './Directory';
 
 function asArray(value: any) {
   return Array.isArray(value) ? value : [];
@@ -17,8 +20,78 @@ export default function Assets() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [licenseFilter, setLicenseFilter] = useState('All');
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
+  const [accountFilter, setAccountFilter] = useState('All Account');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const recordsPerPage = 10;
+  
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, Partial<any>>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleUpdateDraft = (id: string, field: string, value: any) => {
+    setDrafts(prev => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || devices.find(d => d.id === id) || {}),
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    try {
+      const draftEntries = Object.entries(drafts);
+      if (draftEntries.length === 0) {
+        setIsEditMode(false);
+        return;
+      }
+      
+      const results = await Promise.allSettled(
+        draftEntries.map(([id, payload]) => deviceService.update(id, payload))
+      );
+      
+      const successes: any[] = [];
+      let failures = 0;
+      
+      results.forEach((res, index) => {
+        if (res.status === 'fulfilled') {
+          successes.push({ id: draftEntries[index][0], updated: res.value });
+        } else {
+          failures++;
+        }
+      });
+      
+      if (successes.length > 0) {
+        setDevices(current => current.map(d => {
+          const matched = successes.find(s => s.id === d.id);
+          return matched ? { ...d, ...matched.updated } : d;
+        }));
+      }
+      
+      if (failures > 0) {
+        toast.error(`Failed to update ${failures} asset(s)`);
+      } else {
+        toast.success('Assets updated successfully');
+      }
+      
+      setDrafts({});
+      setIsEditMode(false);
+    } catch (err) {
+      toast.error('An unexpected error occurred while saving.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setDrafts({});
+    setIsEditMode(false);
+  };
+
+  const internalAccounts = useMemo(() => accounts.filter((account) => account.accountType === 'internal'), [accounts]);
+  const externalAccounts = useMemo(() => accounts.filter((account) => account.accountType === 'external'), [accounts]);
 
   const toggleSort = (key: string) => {
     if (sortConfig && sortConfig.key === key) {
@@ -34,27 +107,36 @@ export default function Assets() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, licenseFilter, sortConfig]);
+  }, [searchTerm, licenseFilter, accountFilter, sortConfig]);
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadDevices() {
+    async function loadData() {
       setIsLoading(true);
       try {
-        const result = await deviceService.list();
-        if (isMounted) {
-          const activeDevices = asArray(result).filter(
+        const [devicesResult, accountsResult] = await Promise.allSettled([
+          deviceService.list(),
+          accountService.list(),
+        ]);
+        if (!isMounted) return;
+
+        if (devicesResult.status === 'fulfilled') {
+          const activeDevices = asArray(devicesResult.value).filter(
             (device: any) => device.assigneeStatus === 'active' && !device.isArchived
           );
           setDevices(activeDevices);
+        }
+
+        if (accountsResult.status === 'fulfilled') {
+          setAccounts(normalizeAccountList(accountsResult.value));
         }
       } finally {
         if (isMounted) setIsLoading(false);
       }
     }
 
-    loadDevices();
+    loadData();
     return () => {
       isMounted = false;
     };
@@ -65,6 +147,10 @@ export default function Assets() {
 
     if (licenseFilter !== 'All') {
       result = result.filter(d => licenseFilter === 'Licensed' ? !!d.windowsKey : !d.windowsKey);
+    }
+
+    if (accountFilter !== 'All Account') {
+      result = result.filter(d => d.assigneeAccount === accountFilter);
     }
 
     const search = searchTerm.toLowerCase();
@@ -118,7 +204,7 @@ export default function Assets() {
   );
 
   return (
-    <PageLayout title="IT Asset Management">
+    <PageLayout title="IT Asset Management" contentClassName="w-full max-w-[1600px] mx-auto">
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex flex-1 items-center gap-4">
@@ -141,16 +227,42 @@ export default function Assets() {
                 { value: 'Unlicensed', label: 'No Key' },
               ]}
             />
+            <AccountFilterDropdown
+              value={accountFilter}
+              onChange={setAccountFilter}
+              internalAccounts={internalAccounts}
+              externalAccounts={externalAccounts}
+            />
           </div>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] bg-white rounded-xl text-sm font-bold text-[#4B5563]">
-              <Wifi className="w-4 h-4" />
-              Check Conn.
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] bg-white rounded-xl text-sm font-bold text-[#4B5563]">
-              <Database className="w-4 h-4" />
-              Scan Network
-            </button>
+            {isEditMode ? (
+              <>
+                <button
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-4 py-2.5 border border-transparent bg-[#111827] text-white rounded-xl text-sm font-bold hover:bg-[#374151] transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Changes
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] bg-white rounded-xl text-sm font-bold text-[#4B5563] hover:bg-[#F9FAFB] transition-colors disabled:opacity-50"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] bg-white rounded-xl text-sm font-bold text-[#4B5563] hover:bg-[#F9FAFB] transition-colors"
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit Mode
+              </button>
+            )}
           </div>
         </div>
 
@@ -194,7 +306,8 @@ export default function Assets() {
                       { key: 'pcName', label: 'Asset Identifier' },
                       { key: 'assigneeName', label: 'Assignee' },
                       { key: 'windowsKey', label: 'License Type' },
-                      { key: 'rustdeskId', label: 'Remote Access' },
+                      { key: 'remoteId', label: 'Remote ID' },
+                      { key: 'rustdeskId', label: 'RustDesk ID' },
                     ].map((header) => {
                       const isActiveSort = sortConfig?.key === header.key;
                       const SortIcon = isActiveSort ? (sortConfig?.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
@@ -221,7 +334,8 @@ export default function Assets() {
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                      <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded-lg w-28"></div></td>
+                      <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded-lg w-20"></div></td>
+                      <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded-lg w-24"></div></td>
                       <td className="px-6 py-4 text-right"><div className="h-4 bg-gray-200 rounded w-16 ml-auto"></div></td>
                     </tr>
                   ))}
@@ -250,7 +364,8 @@ export default function Assets() {
                       { key: 'pcName', label: 'Asset Identifier' },
                       { key: 'assigneeName', label: 'Assignee' },
                       { key: 'windowsKey', label: 'License Type' },
-                      { key: 'rustdeskId', label: 'Remote Access' },
+                      { key: 'remoteId', label: 'Remote ID' },
+                      { key: 'rustdeskId', label: 'RustDesk ID' },
                     ].map((header) => {
                       const isActiveSort = sortConfig?.key === header.key;
                       const SortIcon = isActiveSort ? (sortConfig?.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
@@ -280,30 +395,67 @@ export default function Assets() {
                       transition={{ delay: index * 0.05, type: 'spring', stiffness: 380, damping: 30 }}
                       className="hover:bg-[#F9FAFB] transition-colors border-b border-[#F3F4F6] last:border-0"
                     >
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-black text-[#111827] font-mono">{device.pcName || 'Unassigned'}</p>
-                        <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-tighter mt-0.5">BIOS: {device.biosDate || 'Not set'}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-[#4B5563]">{device.assigneeName || 'Unassigned'}</span>
-                          <Link to={`/employee/${device.assigneeId || device.id}`}><ExternalLink className="w-3 h-3 text-[#D1D5DB]" /></Link>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Key className="w-3.5 h-3.5 text-[#9CA3AF]" />
-                          <span className="text-xs font-bold text-[#111827] uppercase">{device.windowsKey ? 'Windows / Assigned' : 'No Key'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="py-1 px-3 bg-[#F3F4F6] rounded-lg w-fit">
-                          <p className="text-xs font-black text-[#111827] font-mono">{device.rustdeskId || device.remoteId || 'No remote ID'}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Link to={`/employee/${device.assigneeId || device.id}`} className="text-[10px] font-black uppercase text-[#111827] hover:underline">Full Specs</Link>
-                      </td>
+                      {isEditMode ? (
+                        <>
+                          <td className="px-6 py-4">
+                            <input type="text" value={drafts[device.id]?.pcName ?? (device.pcName || '')} onChange={(e) => handleUpdateDraft(device.id, 'pcName', e.target.value)} className="w-full text-sm font-black text-[#111827] font-mono border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-[#2563EB]" placeholder="PC Name" />
+                            <input type="date" value={drafts[device.id]?.biosDate ?? (device.biosDate || '')} onChange={(e) => handleUpdateDraft(device.id, 'biosDate', e.target.value)} className="w-full text-[10px] text-[#9CA3AF] font-bold uppercase tracking-tighter mt-1 border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-[#2563EB]" />
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-[#4B5563]">{device.assigneeName || 'Unassigned'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <input type="text" value={drafts[device.id]?.windowsKey ?? (device.windowsKey || '')} onChange={(e) => handleUpdateDraft(device.id, 'windowsKey', e.target.value)} className="w-full text-xs font-bold text-[#111827] uppercase border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-[#2563EB]" placeholder="License Key" />
+                          </td>
+                          <td className="px-6 py-4">
+                            <input type="text" value={drafts[device.id]?.remoteId ?? (device.remoteId || '')} onChange={(e) => handleUpdateDraft(device.id, 'remoteId', e.target.value)} className="w-full text-xs font-black text-[#111827] font-mono border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-[#2563EB]" placeholder="Remote ID" />
+                          </td>
+                          <td className="px-6 py-4">
+                            <input type="text" value={drafts[device.id]?.rustdeskId ?? (device.rustdeskId || '')} onChange={(e) => handleUpdateDraft(device.id, 'rustdeskId', e.target.value)} className="w-full text-xs font-black text-[#111827] font-mono border rounded px-2 py-1 outline-none focus:ring-2 focus:ring-[#2563EB]" placeholder="RustDesk ID" />
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <Link to={`/employee/${device.assigneeId || device.id}`} className="text-[10px] font-black uppercase text-[#111827] hover:underline flex items-center justify-end gap-1">
+                              <ExternalLink className="w-3 h-3" /> Specs
+                            </Link>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-black text-[#111827] font-mono">{device.pcName || 'Unassigned'}</p>
+                            <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-tighter mt-0.5">BIOS: {device.biosDate || 'Not set'}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-[#4B5563]">{device.assigneeName || 'Unassigned'}</span>
+                              <Link to={`/employee/${device.assigneeId || device.id}`}><ExternalLink className="w-3 h-3 text-[#D1D5DB]" /></Link>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <Key className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                              <span className="text-xs font-bold text-[#111827] uppercase">{device.windowsKey ? 'Windows / Assigned' : 'No Key'}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="py-1 px-3 bg-[#F3F4F6] rounded-lg w-fit">
+                              <p className="text-xs font-black text-[#111827] font-mono">{device.remoteId || 'No remote ID'}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="py-1 px-3 bg-[#F3F4F6] rounded-lg w-fit">
+                              <p className="text-xs font-black text-[#111827] font-mono">{device.rustdeskId || 'No RustDesk ID'}</p>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <Link to={`/employee/${device.assigneeId || device.id}`} className="text-[10px] font-black uppercase text-[#111827] hover:underline flex items-center justify-end gap-1">
+                              <ExternalLink className="w-3 h-3" /> Specs
+                            </Link>
+                          </td>
+                        </>
+                      )}
                     </motion.tr>
                   ))}
                 </tbody>
