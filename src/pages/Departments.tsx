@@ -19,7 +19,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'motion/react';
 import { PageLayout } from '@/src/components/layout/PageLayout';
+import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { cn } from '@/src/lib/utils';
 import { accountService } from '@/src/services/accountService';
@@ -414,14 +416,28 @@ export default function Departments() {
     <PageLayout title="Organization Departments">
       <div className="flex flex-col gap-8">
 
-        {!isLoading && departments.length > 0 && (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Total Departments" value={departments.length} icon={Building2} color="blue" />
-            <StatCard label="Internal" value={internalDepts.length} icon={Shield} color="indigo" />
-            <StatCard label="External" value={externalDepts.length} icon={Zap} color="violet" />
-            <StatCard label="Active Employees" value={totalActive} icon={Users} color="emerald" />
-          </div>
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-stats" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 rounded-2xl border border-[#F3F4F6] bg-white p-4 shadow-sm animate-pulse">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-6 w-12 bg-gray-200 rounded" />
+                    <div className="h-3 w-20 bg-gray-200 rounded" />
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          ) : departments.length > 0 ? (
+            <motion.div key="content-stats" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard label="Total Departments" value={departments.length} icon={Building2} color="blue" />
+              <StatCard label="Internal" value={internalDepts.length} icon={Shield} color="indigo" />
+              <StatCard label="External" value={externalDepts.length} icon={Zap} color="violet" />
+              <StatCard label="Active Employees" value={totalActive} icon={Users} color="emerald" />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full flex-1">
@@ -447,52 +463,89 @@ export default function Departments() {
           )}
         </div>
 
-        <div className="space-y-10">
-          <DepartmentGroup
-            title="Internal"
-            departments={internalDepts}
-            employeeCounts={employeeCounts}
-            canManageDepartments={canManageDepartments}
-            openMenuId={openMenuId}
-            onToggleMenu={(id) => setOpenMenuId((cur) => (cur === id ? null : id))}
-            onCloseMenu={() => setOpenMenuId(null)}
-            onEdit={openEditModal}
-            onDelete={openDeleteModal}
-            onManageEmployees={manageEmployees}
-            onExportEmployees={exportEmployees}
-          />
-          <DepartmentGroup
-            title="External"
-            departments={externalDepts}
-            employeeCounts={employeeCounts}
-            canManageDepartments={canManageDepartments}
-            openMenuId={openMenuId}
-            onToggleMenu={(id) => setOpenMenuId((cur) => (cur === id ? null : id))}
-            onCloseMenu={() => setOpenMenuId(null)}
-            onEdit={openEditModal}
-            onDelete={openDeleteModal}
-            onManageEmployees={manageEmployees}
-            onExportEmployees={exportEmployees}
-          />
-        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-groups" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="space-y-10 relative">
+              {['Internal', 'External'].map((title, idx) => (
+                <section key={title} className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3.5 w-0.5 rounded-full bg-gray-200 animate-pulse" />
+                    <div className="h-4 w-20 rounded bg-gray-200 animate-pulse" />
+                    <div className="h-4 w-6 rounded-full bg-gray-200 animate-pulse" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {[...Array(idx === 0 ? 3 : 2)].map((_, i) => (
+                      <div key={i} className="group relative flex flex-col rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm animate-pulse">
+                        <div className="mb-4 flex items-start justify-between">
+                          <div className="h-11 w-11 rounded-xl bg-gray-200" />
+                          <div className="h-8 w-8 rounded-xl bg-gray-200" />
+                        </div>
+                        <div className="h-6 w-3/4 rounded bg-gray-200 mb-4 mt-2" />
+                        <div className="mt-auto grid grid-cols-2 gap-3 border-t border-[#F9FAFB] pt-4">
+                          <div>
+                            <div className="h-2 w-8 bg-gray-200 rounded mb-1.5" />
+                            <div className="h-4 w-12 bg-gray-200 rounded" />
+                          </div>
+                          <div>
+                            <div className="h-2 w-16 bg-gray-200 rounded mb-1.5" />
+                            <div className="h-4 w-8 bg-gray-200 rounded" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+              <SkeletonLoadingMessage message="Loading department structures..." />
+            </motion.div>
+          ) : (
+            <motion.div key="content-groups" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="space-y-10">
+              <DepartmentGroup
+                title="Internal"
+                departments={internalDepts}
+                employeeCounts={employeeCounts}
+                canManageDepartments={canManageDepartments}
+                openMenuId={openMenuId}
+                onToggleMenu={(id) => setOpenMenuId((cur) => (cur === id ? null : id))}
+                onCloseMenu={() => setOpenMenuId(null)}
+                onEdit={openEditModal}
+                onDelete={openDeleteModal}
+                onManageEmployees={manageEmployees}
+                onExportEmployees={exportEmployees}
+              />
+              <DepartmentGroup
+                title="External"
+                departments={externalDepts}
+                employeeCounts={employeeCounts}
+                canManageDepartments={canManageDepartments}
+                openMenuId={openMenuId}
+                onToggleMenu={(id) => setOpenMenuId((cur) => (cur === id ? null : id))}
+                onCloseMenu={() => setOpenMenuId(null)}
+                onEdit={openEditModal}
+                onDelete={openDeleteModal}
+                onManageEmployees={manageEmployees}
+                onExportEmployees={exportEmployees}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {(isLoading || filteredDepartments.length === 0) && (
+        {(!isLoading && filteredDepartments.length === 0) && (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#E5E7EB] bg-white py-20 text-center shadow-sm">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F3F4F6]">
-              {isLoading
-                ? <Loader2 className="h-8 w-8 animate-spin text-[#9CA3AF]" />
-                : <Building2 className="h-8 w-8 text-[#D1D5DB]" />}
+              <Building2 className="h-8 w-8 text-[#D1D5DB]" />
             </div>
             <h3 className="text-base font-bold text-[#111827]">
-              {isLoading ? 'Loading departments…' : search ? 'No matching departments' : 'No departments yet'}
+              {search ? 'No matching departments' : 'No departments yet'}
             </h3>
-            {!isLoading && !search && canManageDepartments && (
+            {!search && canManageDepartments && (
               <p className="mt-1 text-sm text-[#9CA3AF]">Click <strong>New Department</strong> to get started.</p>
             )}
           </div>
         )}
       </div>
 
+      <AnimatePresence>
       {isAddModalOpen && (
         <Modal onClose={closeAddModal} maxWidth="max-w-lg">
           <ModalHeader
@@ -599,7 +652,9 @@ export default function Departments() {
           </form>
         </Modal>
       )}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {isEditModalOpen && selectedDepartment && (
         <Modal onClose={closeEditModal} maxWidth="max-w-lg">
           <ModalHeader
@@ -672,7 +727,9 @@ export default function Departments() {
           </form>
         </Modal>
       )}
+      </AnimatePresence>
 
+      <AnimatePresence>
       {isDeleteModalOpen && selectedDepartment && (
         <Modal onClose={closeDeleteModal} maxWidth="max-w-md">
           <ModalHeader
@@ -746,6 +803,7 @@ export default function Departments() {
           </div>
         </Modal>
       )}
+      </AnimatePresence>
 
       <style>{`
         .form-input {
@@ -836,18 +894,23 @@ function Modal({
   maxWidth?: string;
 }) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/50 px-4 py-6 backdrop-blur-sm"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div
+      <motion.div
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 30, scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
         className={cn('w-full rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl', maxWidth)}
-        style={{ animation: 'modalIn .18s cubic-bezier(.4,0,.2,1)' }}
       >
         {children}
-      </div>
-      <style>{`@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}`}</style>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -963,20 +1026,26 @@ function DepartmentGroup({
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {departments.map((dept) => (
-          <DepartmentCard
+        {departments.map((dept, index) => (
+          <motion.div
             key={dept.id}
-            department={dept}
-            count={employeeCounts[dept.name] || 0}
-            canManage={canManageDepartments}
-            menuOpen={openMenuId === dept.id}
-            onToggleMenu={() => onToggleMenu(dept.id)}
-            onCloseMenu={onCloseMenu}
-            onEdit={() => onEdit(dept)}
-            onDelete={() => onDelete(dept)}
-            onManageEmployees={() => onManageEmployees(dept)}
-            onExportEmployees={() => onExportEmployees(dept)}
-          />
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05, type: 'spring', stiffness: 380, damping: 30 }}
+          >
+            <DepartmentCard
+              department={dept}
+              count={employeeCounts[dept.name] || 0}
+              canManage={canManageDepartments}
+              menuOpen={openMenuId === dept.id}
+              onToggleMenu={() => onToggleMenu(dept.id)}
+              onCloseMenu={onCloseMenu}
+              onEdit={() => onEdit(dept)}
+              onDelete={() => onDelete(dept)}
+              onManageEmployees={() => onManageEmployees(dept)}
+              onExportEmployees={() => onExportEmployees(dept)}
+            />
+          </motion.div>
         ))}
       </div>
     </section>
@@ -1069,15 +1138,6 @@ function DepartmentCard({
             <p className="mb-0.5 text-[9px] font-black uppercase tracking-widest text-[#9CA3AF]">Active Staff</p>
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-black text-[#111827]">{count}</p>
-              {count > 0 && (
-                <button
-                  type="button"
-                  onClick={onManageEmployees}
-                  className="flex items-center gap-0.5 rounded-full bg-[#F3F4F6] px-1.5 py-0.5 text-[10px] font-bold text-[#6B7280] transition-colors hover:bg-[#E5E7EB] hover:text-[#111827]"
-                >
-                  View <ChevronRight className="h-2.5 w-2.5" />
-                </button>
-              )}
             </div>
           </div>
         </div>

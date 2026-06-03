@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { FileText, Download, PieChart, BarChart, ShieldAlert, Trash2, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { PageLayout } from '@/src/components/layout/PageLayout';
+import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import toast from 'react-hot-toast';
 import { employeeService } from '@/src/services/employeeService';
 import { siteService } from '@/src/services/siteService';
@@ -278,30 +280,35 @@ const REPORTS = [
     title: 'Employee Master List',
     desc: 'Complete database of all staff and their HR records.',
     icon: FileText,
+    color: 'text-blue-600 bg-blue-50 border-blue-100 group-hover:bg-blue-600 group-hover:border-blue-600 group-hover:text-white',
     generate: generateEmployeeMasterList,
   },
   {
     title: 'IT Asset & License Report',
     desc: 'Detailed mapping of PCs, Windows license keys, and remote IDs.',
     icon: PieChart,
+    color: 'text-violet-600 bg-violet-50 border-violet-100 group-hover:bg-violet-600 group-hover:border-violet-600 group-hover:text-white',
     generate: generateITAssetReport,
   },
   {
     title: 'Security Compliance Audit',
     desc: 'List of devices missing ESET or ActivityWatch software.',
     icon: ShieldAlert,
+    color: 'text-red-600 bg-red-50 border-red-100 group-hover:bg-red-600 group-hover:border-red-600 group-hover:text-white',
     generate: generateSecurityAudit,
   },
   {
     title: 'Site Occupancy Report',
     desc: 'Breakdown of personnel distribution across all physical sites.',
     icon: BarChart,
+    color: 'text-emerald-600 bg-emerald-50 border-emerald-100 group-hover:bg-emerald-600 group-hover:border-emerald-600 group-hover:text-white',
     generate: generateSiteOccupancy,
   },
   {
     title: 'Recent Terminations & Archives',
     desc: 'Audit trail for off-boarding activities over the last 30 days.',
     icon: Trash2,
+    color: 'text-amber-600 bg-amber-50 border-amber-100 group-hover:bg-amber-600 group-hover:border-amber-600 group-hover:text-white',
     generate: generateTerminationsReport,
   },
 ];
@@ -310,6 +317,12 @@ const REPORTS = [
 
 export default function Reports() {
   const [generating, setGenerating] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   async function handleDownload(report: (typeof REPORTS)[number]) {
     if (generating) return;
@@ -327,44 +340,67 @@ export default function Reports() {
 
   return (
     <PageLayout title="Analytical Reports">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {REPORTS.map((report) => {
-          const isLoading = generating === report.title;
-          const isDisabled = generating !== null;
-
-          return (
-            <div
-              key={report.title}
-              className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm hover:shadow-md transition-all group"
-            >
-              <div className="flex items-start justify-between mb-6">
-                <div className="p-3 bg-[#F3F4F6] rounded-2xl text-[#111827] group-hover:bg-[#111827] group-hover:text-white transition-colors border border-[#E5E7EB]">
-                  <report.icon className="w-6 h-6" />
+      <AnimatePresence mode="wait" initial={false}>
+        {isLoading ? (
+          <motion.div key="skeleton-reports" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 relative">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm animate-pulse">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-gray-200"></div>
+                  <div className="w-12 h-6 rounded-lg bg-gray-200"></div>
                 </div>
-                <span className="text-[10px] font-black uppercase px-2 py-1 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg text-[#6B7280]">
-                  xlsx
-                </span>
+                <div className="w-2/3 h-6 rounded bg-gray-200 mb-3"></div>
+                <div className="w-full h-4 rounded bg-gray-200 mb-2"></div>
+                <div className="w-3/4 h-4 rounded bg-gray-200 mb-8"></div>
+                <div className="w-full h-12 rounded-xl bg-gray-200"></div>
               </div>
+            ))}
+            <SkeletonLoadingMessage message="Preparing report templates..." />
+          </motion.div>
+        ) : (
+          <motion.div key="content-reports" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {REPORTS.map((report, index) => {
+              const isGenerating = generating === report.title;
+              const isDisabled = generating !== null;
 
-              <h3 className="text-xl font-black text-[#111827] mb-2">{report.title}</h3>
-              <p className="text-sm text-[#6B7280] leading-relaxed mb-8">{report.desc}</p>
+              return (
+                <motion.div
+                  key={report.title}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05, type: 'spring', stiffness: 380, damping: 30 }}
+                  className="bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col"
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div className={`p-3 rounded-2xl transition-all duration-300 border ${report.color}`}>
+                      <report.icon className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase px-2 py-1 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg text-[#6B7280]">
+                      xlsx
+                    </span>
+                  </div>
 
-              <button
-                onClick={() => handleDownload(report)}
-                disabled={isDisabled}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#111827] hover:bg-[#111827] hover:text-white transition-all shadow-sm group-hover:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4" />
-                )}
-                {isLoading ? 'Generating…' : 'Generate & Download'}
-              </button>
-            </div>
-          );
-        })}
-      </div>
+                  <h3 className="text-xl font-black text-[#111827] mb-2">{report.title}</h3>
+                  <p className="text-sm text-[#6B7280] leading-relaxed mb-8 flex-1">{report.desc}</p>
+
+                  <button
+                    onClick={() => handleDownload(report)}
+                    disabled={isDisabled}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#111827] hover:bg-[#111827] hover:text-white transition-all shadow-sm group-hover:border-[#111827] disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {isGenerating ? 'Generating…' : 'Generate & Download'}
+                  </button>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }

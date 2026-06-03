@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, Edit, Loader2, Merge, Trash2, UploadCloud, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
 import { cn } from '@/src/lib/utils';
@@ -385,121 +386,161 @@ export default function EmployeeImportReview() {
           </div>
         </div>
 
-        {isLoading ? (
-          <div className="flex h-72 items-center justify-center rounded-2xl border border-[#E5E7EB] bg-white">
-            <Loader2 className="h-8 w-8 animate-spin text-[#9CA3AF]" />
-          </div>
-        ) : (
-          <>
-            {activeView === 'duplicates' && (
-              <div className="space-y-5">
-                {duplicateGroups.length ? (
-                  duplicateGroups.map((group) => (
-                    <DuplicateGroup
-                      key={group.key}
-                      importBatchId={group.importBatchId}
-                      groupKey={group.duplicateKey}
-                      rows={group.rows}
-                      onResolve={resolveDuplicate}
-                      onMerge={() => openMergeModal(group)}
-                      onDelete={(ids, label) => requestDeleteRows({
-                        title: 'Delete Duplicate Records',
-                        detail: `This will permanently delete ${ids.length} duplicate staging record${ids.length === 1 ? '' : 's'} for ${label} from the database.`,
-                        phrase: 'DELETE DUPLICATES',
-                        ids,
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-import-review" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm w-full">
+              <table className="w-full min-w-[920px] text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Status</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Row</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Employee</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Issues</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-4 py-3"><div className="h-5 w-16 bg-gray-200 rounded-lg"></div></td>
+                      <td className="px-4 py-3"><div className="h-4 w-12 bg-gray-200 rounded"></div></td>
+                      <td className="px-4 py-3"><div className="h-4 w-32 bg-gray-200 rounded"></div></td>
+                      <td className="px-4 py-3"><div className="h-4 w-48 bg-gray-200 rounded"></div></td>
+                      <td className="px-4 py-3"><div className="h-9 w-20 bg-gray-200 rounded-lg ml-auto"></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </motion.div>
+          ) : (
+            <motion.div key="content-import-review" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="flex flex-col gap-0 w-full">
+              {activeView === 'duplicates' && (
+                <div className="space-y-5">
+                  {duplicateGroups.length ? (
+                    duplicateGroups.map((group) => (
+                      <DuplicateGroup
+                        key={group.key}
+                        importBatchId={group.importBatchId}
+                        groupKey={group.duplicateKey}
+                        rows={group.rows}
+                        onResolve={resolveDuplicate}
+                        onMerge={() => openMergeModal(group)}
+                        onDelete={(ids, label) => requestDeleteRows({
+                          title: 'Delete Duplicate Records',
+                          detail: `This will permanently delete ${ids.length} duplicate staging record${ids.length === 1 ? '' : 's'} for ${label} from the database.`,
+                          phrase: 'DELETE DUPLICATES',
+                          ids,
+                        })}
+                      />
+                    ))
+                  ) : (
+                    <EmptyState title="No duplicate issues" detail="Duplicate employee IDs will appear here after staging." />
+                  )}
+                </div>
+              )}
+    
+              {activeView === 'issues' && (
+                <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm mt-0">
+                  {visibleIssueRows.length ? (
+                    <IssueTable
+                      rows={visibleIssueRows}
+                      onEdit={openEditor}
+                      onDelete={(row) => requestDeleteRows({
+                        title: 'Delete Import Staging Record',
+                        detail: `This will permanently delete staging row ${row.sourceRow} from the database.`,
+                        phrase: 'DELETE IMPORT ROW',
+                        ids: [row.id],
                       })}
                     />
-                  ))
-                ) : (
-                  <EmptyState title="No duplicate issues" detail="Duplicate employee IDs will appear here after staging." />
-                )}
-              </div>
-            )}
-
-            {activeView === 'issues' && (
-              <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-                {visibleIssueRows.length ? (
-                  <IssueTable
-                    rows={visibleIssueRows}
-                    onEdit={openEditor}
-                    onDelete={(row) => requestDeleteRows({
-                      title: 'Delete Import Staging Record',
-                      detail: `This will permanently delete staging row ${row.sourceRow} from the database.`,
-                      phrase: 'DELETE IMPORT ROW',
-                      ids: [row.id],
-                    })}
-                  />
-                ) : (
-                  <EmptyState title="No non-duplicate issues" detail="Blank IDs, missing required fields, and database errors appear here." />
-                )}
-              </div>
-            )}
-
-            {activeView === 'ready' && (
-              <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-                {readyRows.length ? (
-                  <IssueTable
-                    rows={readyRows}
-                    ready
-                    onEdit={openEditor}
-                    onDelete={(row) => requestDeleteRows({
-                      title: 'Delete Ready Import Record',
-                      detail: `This will permanently delete ready staging row ${row.sourceRow} from the database.`,
-                      phrase: 'DELETE IMPORT ROW',
-                      ids: [row.id],
-                    })}
-                  />
-                ) : (
-                  <EmptyState title="No ready rows" detail="Resolve issues to move rows into the ready list." />
-                )}
-              </div>
-            )}
-          </>
+                  ) : (
+                    <EmptyState title="No non-duplicate issues" detail="Blank IDs, missing required fields, and database errors appear here." />
+                  )}
+                </div>
+              )}
+    
+              {activeView === 'ready' && (
+                <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm mt-0">
+                  {readyRows.length ? (
+                    <IssueTable
+                      rows={readyRows}
+                      ready
+                      onEdit={openEditor}
+                      onDelete={(row) => requestDeleteRows({
+                        title: 'Delete Ready Import Record',
+                        detail: `This will permanently delete ready staging row ${row.sourceRow} from the database.`,
+                        phrase: 'DELETE IMPORT ROW',
+                        ids: [row.id],
+                      })}
+                    />
+                  ) : (
+                    <EmptyState title="No ready rows" detail="Resolve issues to move rows into the ready list." />
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#E5E7EB] bg-white py-12 text-center shadow-sm">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F3F4F6]">
+              <Loader2 className="h-8 w-8 animate-spin text-[#9CA3AF]" />
+            </div>
+            <h3 className="text-base font-bold text-[#111827]">
+              Loading import data...
+            </h3>
+          </div>
         )}
       </div>
 
-      {editingRow && (
-        <EditRowModal
-          row={editingRow}
-          form={editForm}
-          accounts={accounts}
-          isSaving={isSavingRow}
-          onChange={updateEditForm}
-          onClose={() => {
-            if (isSavingRow) return;
-            setEditingRow(null);
-            setEditForm({});
-          }}
-          onSave={saveEditedRow}
-        />
-      )}
+      <AnimatePresence>
+        {editingRow && (
+          <EditRowModal
+            row={editingRow}
+            form={editForm}
+            accounts={accounts}
+            isSaving={isSavingRow}
+            onChange={updateEditForm}
+            onClose={() => {
+              if (isSavingRow) return;
+              setEditingRow(null);
+              setEditForm({});
+            }}
+            onSave={saveEditedRow}
+          />
+        )}
+      </AnimatePresence>
 
-      {mergeGroup && (
-        <MergeRowsModal
-          group={mergeGroup}
-          form={mergeForm}
-          accounts={accounts}
-          isSaving={isSavingMerge}
-          onChange={updateMergeForm}
-          onClose={() => {
-            if (isSavingMerge) return;
-            setMergeGroup(null);
-            setMergeForm({});
-          }}
-          onSave={saveMergedRow}
-        />
-      )}
+      <AnimatePresence>
+        {mergeGroup && (
+          <MergeRowsModal
+            group={mergeGroup}
+            form={mergeForm}
+            accounts={accounts}
+            isSaving={isSavingMerge}
+            onChange={updateMergeForm}
+            onClose={() => {
+              if (isSavingMerge) return;
+              setMergeGroup(null);
+              setMergeForm({});
+            }}
+            onSave={saveMergedRow}
+          />
+        )}
+      </AnimatePresence>
 
-      {deleteIntent && (
-        <ConfirmDeleteModal
-          intent={deleteIntent}
-          isDeleting={isDeletingRows}
-          onClose={() => {
-            if (!isDeletingRows) setDeleteIntent(null);
-          }}
-          onConfirm={deleteRows}
-        />
-      )}
+      <AnimatePresence>
+        {deleteIntent && (
+          <ConfirmDeleteModal
+            intent={deleteIntent}
+            isDeleting={isDeletingRows}
+            onClose={() => {
+              if (!isDeletingRows) setDeleteIntent(null);
+            }}
+            onConfirm={deleteRows}
+          />
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }
@@ -649,8 +690,19 @@ function MergeRowsModal({
   const mergedCompleteness = completenessForData(form);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
-      <div className="flex max-h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm"
+    >
+      <motion.div 
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 30, scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        className="flex max-h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] px-6 py-4">
           <div>
             <h2 className="text-lg font-black text-[#111827]">Merge Duplicate ID {group.duplicateKey}</h2>
@@ -751,8 +803,8 @@ function MergeRowsModal({
             Save Merged Record
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -863,8 +915,19 @@ function ConfirmDeleteModal({
   const canConfirm = !requiresPhrase || typedPhrase === intent.phrase;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-[#FECACA] bg-white shadow-2xl">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm"
+    >
+      <motion.div 
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 30, scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        className="w-full max-w-lg rounded-2xl border border-[#FECACA] bg-white shadow-2xl"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[#FEE2E2] px-6 py-4">
           <div>
             <h2 className="text-lg font-black text-[#111827]">{intent.title}</h2>
@@ -918,8 +981,8 @@ function ConfirmDeleteModal({
             Delete Records
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -941,8 +1004,19 @@ function EditRowModal({
   onSave: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm"
+    >
+      <motion.div 
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 30, scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] px-6 py-4">
           <div>
             <h2 className="text-lg font-black text-[#111827]">Edit Import Row {row.sourceRow}</h2>
@@ -1022,8 +1096,8 @@ function EditRowModal({
             Save Row
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

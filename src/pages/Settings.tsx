@@ -11,8 +11,10 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
+import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { AppUser } from '@/src/types';
 import { authService } from '@/src/services/authService';
@@ -150,26 +152,35 @@ export default function Settings() {
   return (
     <PageLayout title="System Settings">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <aside className="w-full">
-          <div className="flex flex-col gap-3">
-            {isSuperAdmin && (
-              <>
-                <TabButton active={activeTab === 'profile'} icon={Building2} label="Profile" onClick={() => setActiveTab('profile')} />
-                <TabButton active={activeTab === 'notifications'} icon={Bell} label="Notification" onClick={() => setActiveTab('notifications')} />
-              </>
-            )}
-            <TabButton active={activeTab === 'password'} icon={Lock} label="Password" onClick={() => setActiveTab('password')} />
-          </div>
-        </aside>
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="w-full flex flex-col gap-3 relative">
+              {[...Array(isSuperAdmin ? 3 : 1)].map((_, i) => (
+                <div key={i} className="h-14 w-full rounded-2xl bg-white border border-[#E5E7EB] shadow-sm animate-pulse flex items-center px-4">
+                  <div className="h-6 w-6 rounded-md bg-gray-200"></div>
+                  <div className="ml-3 h-4 w-24 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+              <SkeletonLoadingMessage message="Loading configuration..." />
+            </motion.div>
+          ) : (
+            <motion.aside key="content-settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="w-full">
+              <div className="flex flex-col gap-3">
+                {isSuperAdmin && (
+                  <>
+                    <TabButton active={activeTab === 'profile'} icon={Building2} label="Profile" onClick={() => setActiveTab('profile')} />
+                    <TabButton active={activeTab === 'notifications'} icon={Bell} label="Notification" onClick={() => setActiveTab('notifications')} />
+                  </>
+                )}
+                <TabButton active={activeTab === 'password'} icon={Lock} label="Password" onClick={() => setActiveTab('password')} />
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
 
-        {isLoading ? (
-          <div className="flex min-h-24 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#9CA3AF]" />
-          </div>
-        ) : null}
-
-        {!isLoading && activeTab ? (
-          <SettingsModal onClose={closeSettingsModal}>
+        <AnimatePresence>
+          {!isLoading && activeTab ? (
+            <SettingsModal onClose={closeSettingsModal}>
             {isSuperAdmin && activeTab === 'profile' && (
               <section>
                 <div className="mb-6 flex items-center gap-3">
@@ -284,8 +295,9 @@ export default function Settings() {
                 </form>
               </section>
             )}
-          </SettingsModal>
-        ) : null}
+            </SettingsModal>
+          ) : null}
+        </AnimatePresence>
       </div>
     </PageLayout>
   );
@@ -293,8 +305,19 @@ export default function Settings() {
 
 function SettingsModal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-2xl animate-[fadeIn_180ms_ease-out] rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-2xl">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm"
+    >
+      <motion.div 
+        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 30, scale: 0.95 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        className="w-full max-w-2xl rounded-2xl border border-[#E5E7EB] bg-white p-6 shadow-2xl"
+      >
         <div className="mb-4 flex justify-end">
           <button
             type="button"
@@ -306,8 +329,8 @@ function SettingsModal({ children, onClose }: { children: React.ReactNode; onClo
           </button>
         </div>
         {children}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

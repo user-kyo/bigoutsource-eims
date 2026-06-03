@@ -170,10 +170,10 @@ function NotificationBell() {
           <motion.div
             className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
-            initial={{ opacity: 0, x: 24, scale: 0.98 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 24, scale: 0.98 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
           >
             <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] px-5 py-4">
               <div>

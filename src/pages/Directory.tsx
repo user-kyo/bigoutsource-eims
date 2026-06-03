@@ -15,12 +15,15 @@ import {
   Sparkles,
   Upload,
   UserPlus,
+  Users,
   X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
+import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { MOCK_EMPLOYEES, Employee } from '@/src/types';
 import { cn } from '@/src/lib/utils';
@@ -993,54 +996,136 @@ export default function Directory() {
             </div>
           </div>
 
-          <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
-            <table className="w-full min-w-[920px] table-fixed border-collapse text-left">
-              <colgroup>
-                {visibleFields.map((field) => (
-                  <col key={field.key} style={{ width: `${((columnWeights[field.key] || 1) / visibleFieldWeightTotal) * 100}%` }} />
-                ))}
-                <col style={{ width: actionColumnWidth }} />
-              </colgroup>
-              <thead>
-                <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                  {visibleFields.map((field) => {
-                    const isSortable = sortableFieldKeys.includes(field.key);
-                    const isActiveSort = sortConfig?.key === field.key;
-                    const SortIcon = isActiveSort ? (sortConfig.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
-
-                    return (
-                      <th
-                        key={field.key}
-                        className={cn(
-                          'h-14 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle',
-                          field.key === 'fullName' ? 'pl-4 pr-3' : 'pl-6 pr-3'
-                        )}
-                      >
-                        {isSortable ? (
-                          <button
-                            type="button"
-                            onClick={() => toggleSort(field.key)}
-                            aria-sort={isActiveSort ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
-                            className={cn(
-                              'flex max-w-full items-center gap-1.5 rounded-lg py-2 text-left uppercase tracking-widest transition-colors hover:text-[#111827]',
-                              isActiveSort && 'text-[#111827]'
-                            )}
-                          >
-                            <span className="truncate">{field.label}</span>
-                            <SortIcon className="h-3.5 w-3.5 shrink-0" />
-                          </button>
-                        ) : (
-                          <div className="truncate">{field.label}</div>
-                        )}
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto relative">
+              <table className="w-full min-w-[920px] table-fixed border-collapse text-left">
+                <colgroup>
+                  {visibleFields.map((field) => (
+                    <col key={field.key} style={{ width: `${((columnWeights[field.key] || 1) / visibleFieldWeightTotal) * 100}%` }} />
+                  ))}
+                  <col style={{ width: actionColumnWidth }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                    {visibleFields.map((field) => (
+                      <th key={field.key} className={cn('h-14 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle', field.key === 'fullName' ? 'pl-4 pr-3' : 'pl-6 pr-3')}>
+                        <div className="truncate">{field.label}</div>
                       </th>
-                    );
-                  })}
-                  <th className="h-14 px-4 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F3F4F6]">
-                {paginatedEmployees.map((emp) => (
-                  <tr key={emp.id} className={cn(tableRowHeightClass, 'hover:bg-[#F9FAFB] transition-colors group')}>
+                    ))}
+                    <th className="h-14 px-4 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {[...Array(recordsPerPage)].map((_, index) => (
+                    <tr key={`skeleton-${index}`} className={cn(tableRowHeightClass, 'animate-pulse')}>
+                      {visibleFields.map((field) => (
+                        <td key={field.key} className={cn('py-0 align-middle', field.key === 'fullName' ? 'pl-4 pr-3' : 'pl-6 pr-3')}>
+                          <div className="h-4 w-3/4 bg-gray-200 rounded"></div>
+                        </td>
+                      ))}
+                      <td className="px-4 py-0 text-right align-middle">
+                        <div className="h-9 w-24 bg-gray-200 rounded-xl ml-auto"></div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">
+                    Total Personnel: {filteredEmployees.length}
+                  </p>
+                  <p className="mt-1 text-xs font-black text-[#111827]">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!hasPreviousPage}
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    className={cn(
+                      'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                      hasPreviousPage
+                        ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                        : 'text-[#9CA3AF] cursor-not-allowed'
+                    )}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasNextPage}
+                    onClick={() => setCurrentPage((page) => Math.max(totalPages, page + 1))}
+                    className={cn(
+                      'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                      hasNextPage
+                        ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                        : 'text-[#9CA3AF] cursor-not-allowed'
+                    )}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+              <SkeletonLoadingMessage message="Fetching personnel records..." />
+            </motion.div>
+          ) : (
+            <motion.div key="content-table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
+              <table className="w-full min-w-[920px] table-fixed border-collapse text-left">
+                <colgroup>
+                  {visibleFields.map((field) => (
+                    <col key={field.key} style={{ width: `${((columnWeights[field.key] || 1) / visibleFieldWeightTotal) * 100}%` }} />
+                  ))}
+                  <col style={{ width: actionColumnWidth }} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                    {visibleFields.map((field) => {
+                      const isSortable = sortableFieldKeys.includes(field.key);
+                      const isActiveSort = sortConfig?.key === field.key;
+                      const SortIcon = isActiveSort ? (sortConfig.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+                      return (
+                        <th
+                          key={field.key}
+                          className={cn(
+                            'h-14 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle',
+                            field.key === 'fullName' ? 'pl-4 pr-3' : 'pl-6 pr-3'
+                          )}
+                        >
+                          {isSortable ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleSort(field.key)}
+                              aria-sort={isActiveSort ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+                              className={cn(
+                                'flex max-w-full items-center gap-1.5 rounded-lg py-2 text-left uppercase tracking-widest transition-colors hover:text-[#111827]',
+                                isActiveSort && 'text-[#111827]'
+                              )}
+                            >
+                              <span className="truncate">{field.label}</span>
+                              <SortIcon className="h-3.5 w-3.5 shrink-0" />
+                            </button>
+                          ) : (
+                            <div className="truncate">{field.label}</div>
+                          )}
+                        </th>
+                      );
+                    })}
+                    <th className="h-14 px-4 py-0 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest align-middle"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {paginatedEmployees.map((emp, index) => (
+                    <motion.tr 
+                      key={emp.id} 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05, type: 'spring', stiffness: 380, damping: 30 }}
+                      className={cn(tableRowHeightClass, 'hover:bg-[#F9FAFB] transition-colors group')}
+                    >
                     {visibleFields.map((field) => (
                       <td
                         key={field.key}
@@ -1061,7 +1146,7 @@ export default function Directory() {
                         <ChevronRight className="w-4 h-4" />
                       </Link>
                     </td>
-                  </tr>
+                  </motion.tr>
                 ))}
                 {Array.from({ length: placeholderRowCount }).map((_, index) => (
                   <tr key={`placeholder-${index}`} className={cn(tableRowHeightClass, 'pointer-events-none')}>
@@ -1073,56 +1158,58 @@ export default function Directory() {
                     <td colSpan={visibleFields.length + 1} className="px-4 py-0 text-center align-middle">
                       <div className="mx-auto flex max-w-md flex-col items-center justify-center">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F3F4F6]">
-                          {isLoading ? <Loader2 className="h-8 w-8 animate-spin text-[#9CA3AF]" /> : <Search className="h-8 w-8 text-[#D1D5DB]" />}
+                          <Search className="h-8 w-8 text-[#D1D5DB]" />
                         </div>
-                        <h3 className="text-lg font-bold text-[#111827]">{isLoading ? 'Loading records' : 'No records found'}</h3>
-                        <p className="text-sm text-[#6B7280]">{isLoading ? 'Fetching personnel data from the database.' : 'Try adjusting your filters or search keywords.'}</p>
+                        <h3 className="text-lg font-bold text-[#111827]">No records found</h3>
+                        <p className="text-sm text-[#6B7280]">Try adjusting your filters or search keywords.</p>
                       </div>
                     </td>
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
 
-            <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">
-                  Total Personnel: {filteredEmployees.length}
-                </p>
-                <p className="mt-1 text-xs font-black text-[#111827]">
-                  Page {currentPage} of {totalPages}
-                </p>
+              <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">
+                    Total Personnel: {filteredEmployees.length}
+                  </p>
+                  <p className="mt-1 text-xs font-black text-[#111827]">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={!hasPreviousPage}
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    className={cn(
+                      'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                      hasPreviousPage
+                        ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                        : 'text-[#9CA3AF] cursor-not-allowed'
+                    )}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!hasNextPage}
+                    onClick={() => setCurrentPage((page) => Math.max(totalPages, page + 1))}
+                    className={cn(
+                      'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                      hasNextPage
+                        ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                        : 'text-[#9CA3AF] cursor-not-allowed'
+                    )}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={!hasPreviousPage}
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  className={cn(
-                    'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
-                    hasPreviousPage
-                      ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
-                      : 'text-[#9CA3AF] cursor-not-allowed'
-                  )}
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  disabled={!hasNextPage}
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                  className={cn(
-                    'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
-                    hasNextPage
-                      ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
-                      : 'text-[#9CA3AF] cursor-not-allowed'
-                  )}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         </div>
       </div>
 

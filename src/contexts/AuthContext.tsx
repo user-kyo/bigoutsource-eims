@@ -65,7 +65,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, pass: string) => {
-    setLoading(true);
     try {
       const apiUser = await authService.login(email, pass);
       setUser(toAppUser(apiUser));
@@ -73,21 +72,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       toast.error(error.message || 'Login failed');
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const register = async (input: RegisterInput) => {
-    setLoading(true);
     try {
       await authService.register(input);
       toast.success('Account request submitted for approval');
     } catch (error: any) {
       toast.error(error.message || 'Registration failed');
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 

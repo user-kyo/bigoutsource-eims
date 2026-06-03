@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { AlertCircle, History, Loader2, Search, ChevronRight, CheckCircle2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
+import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import { auditLogService } from '@/src/services/auditLogService';
 import { cn } from '@/src/lib/utils';
 
@@ -267,126 +269,176 @@ export default function AuditLogs() {
         </div>
 
         {/* Logs Table */}
-        <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-left border-collapse">
-              <thead>
-                <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
-                    <button type="button" onClick={() => toggleSort('createdAt')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
-                      Timestamp {renderSortIcon('createdAt')}
-                    </button>
-                  </th>
-                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%] h-14">
-                    <button type="button" onClick={() => toggleSort('actor')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
-                      Operator {renderSortIcon('actor')}
-                    </button>
-                  </th>
-                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
-                    <button type="button" onClick={() => toggleSort('action')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
-                      Action {renderSortIcon('action')}
-                    </button>
-                  </th>
-                  <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[20%] h-14">
-                    <button type="button" onClick={() => toggleSort('target')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
-                      Target Entity {renderSortIcon('target')}
-                    </button>
-                  </th>
-                  <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%]">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E5E7EB]">
-                {currentLogs.map((log) => {
-                  const { date, time } = formatDateToParts(log.createdAt);
-                  return (
-                    <tr key={log.id} className="hover:bg-[#F9FAFB] transition-colors align-top group">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-sm font-bold text-[#111827]">{date}</p>
-                        <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider mt-1">{time}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center text-[10px] font-black text-[#111827] shrink-0 group-hover:border-[#D1D5DB] transition-colors">
-                            {actorLabel(log).substring(0, 2).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-[#111827] truncate">{actorLabel(log)}</p>
-                            {log.userEmail && <p className="text-xs font-semibold text-[#6B7280] truncate mt-0.5">{log.userEmail}</p>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white border border-[#E5E7EB] text-[#4B5563] shadow-sm">
-                          {cleanString(log.action)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-bold text-[#111827] truncate">{log.details?.fullName || log.details?.employeeNumber || cleanString(log.entityType)}</p>
-                        <p className="text-[10px] font-black uppercase tracking-wider text-[#9CA3AF] mt-1">{cleanString(log.entityType)}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <AuditDetails details={log.details} />
-                      </td>
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm relative">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1000px] text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
+                        <div className="py-2 text-left w-full">Timestamp</div>
+                      </th>
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%] h-14">
+                        <div className="py-2 text-left w-full">Operator</div>
+                      </th>
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
+                        <div className="py-2 text-left w-full">Action</div>
+                      </th>
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[20%] h-14">
+                        <div className="py-2 text-left w-full">Target Entity</div>
+                      </th>
+                      <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%]">Details</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {(isLoading || sortedLogs.length === 0) && (
-            <div className="p-16 text-center flex flex-col items-center">
-              <div className="w-16 h-16 bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl flex items-center justify-center mb-5 shadow-sm">
-                {isLoading ? <Loader2 className="w-8 h-8 text-[#9CA3AF] animate-spin" /> : <History className="w-8 h-8 text-[#D1D5DB]" />}
+                  </thead>
+                  <tbody className="divide-y divide-[#E5E7EB]">
+                    {[...Array(5)].map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-6 py-4"><div className="h-4 w-24 bg-gray-200 rounded mb-2"></div><div className="h-3 w-16 bg-gray-200 rounded"></div></td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-gray-200 shrink-0"></div>
+                            <div className="flex-1 space-y-2"><div className="h-4 w-32 bg-gray-200 rounded"></div><div className="h-3 w-40 bg-gray-200 rounded"></div></div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4"><div className="h-6 w-24 bg-gray-200 rounded-full"></div></td>
+                        <td className="px-6 py-4"><div className="h-4 w-32 bg-gray-200 rounded mb-2"></div><div className="h-3 w-20 bg-gray-200 rounded"></div></td>
+                        <td className="px-6 py-4"><div className="h-6 w-full max-w-sm bg-gray-200 rounded"></div></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <h3 className="text-lg font-black text-[#111827]">{isLoading ? 'Loading logs...' : 'No audit logs found'}</h3>
-              <p className="text-sm font-medium text-[#6B7280] mt-1 max-w-sm">
-                {isLoading ? 'Fetching the latest system activity from the database.' : 'Try adjusting your search terms or filters to find what you are looking for.'}
+              <SkeletonLoadingMessage message="Fetching system activity..." />
+            </motion.div>
+          ) : (
+            <motion.div key="content-table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1000px] text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
+                        <button type="button" onClick={() => toggleSort('createdAt')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                          Timestamp {renderSortIcon('createdAt')}
+                        </button>
+                      </th>
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%] h-14">
+                        <button type="button" onClick={() => toggleSort('actor')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                          Operator {renderSortIcon('actor')}
+                        </button>
+                      </th>
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[15%] h-14">
+                        <button type="button" onClick={() => toggleSort('action')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                          Action {renderSortIcon('action')}
+                        </button>
+                      </th>
+                      <th className="px-6 py-0 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[20%] h-14">
+                        <button type="button" onClick={() => toggleSort('target')} className="flex items-center gap-1.5 py-2 hover:text-[#111827] transition-colors uppercase tracking-widest text-left w-full">
+                          Target Entity {renderSortIcon('target')}
+                        </button>
+                      </th>
+                      <th className="px-6 py-4 text-[10px] font-black text-[#6B7280] uppercase tracking-widest w-[25%]">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E5E7EB]">
+                    {currentLogs.map((log, index) => {
+                      const { date, time } = formatDateToParts(log.createdAt);
+                      return (
+                        <motion.tr 
+                          key={log.id} 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05, type: 'spring', stiffness: 380, damping: 30 }}
+                          className="hover:bg-[#F9FAFB] transition-colors align-top group"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <p className="text-sm font-bold text-[#111827]">{date}</p>
+                            <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-wider mt-1">{time}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-white border border-[#E5E7EB] shadow-sm flex items-center justify-center text-[10px] font-black text-[#111827] shrink-0 group-hover:border-[#D1D5DB] transition-colors">
+                                {actorLabel(log).substring(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-[#111827] truncate">{actorLabel(log)}</p>
+                                {log.userEmail && <p className="text-xs font-semibold text-[#6B7280] truncate mt-0.5">{log.userEmail}</p>}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white border border-[#E5E7EB] text-[#4B5563] shadow-sm">
+                              {cleanString(log.action)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-bold text-[#111827] truncate">{log.details?.fullName || log.details?.employeeNumber || cleanString(log.entityType)}</p>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-[#9CA3AF] mt-1">{cleanString(log.entityType)}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <AuditDetails details={log.details} />
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {(!isLoading && sortedLogs.length === 0) && (
+                <div className="p-16 text-center flex flex-col items-center">
+                  <div className="w-16 h-16 bg-[#F9FAFB] border border-[#E5E7EB] rounded-2xl flex items-center justify-center mb-5 shadow-sm">
+                    <History className="w-8 h-8 text-[#D1D5DB]" />
+                  </div>
+                  <h3 className="text-lg font-black text-[#111827]">No audit logs found</h3>
+                  <p className="text-sm font-medium text-[#6B7280] mt-1 max-w-sm">
+                    Try adjusting your search terms or filters to find what you are looking for.
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {sortedLogs.length > 0 && !isLoading && (
+          <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">
+                Total Logs: {sortedLogs.length}
+              </p>
+              <p className="mt-1 text-xs font-black text-[#111827]">
+                Page {currentPage} of {totalPages || 1}
               </p>
             </div>
-          )}
-
-          {sortedLogs.length > 0 && !isLoading && (
-            <div className="px-6 py-4 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-[#6B7280] uppercase tracking-widest">
-                  Total Logs: {sortedLogs.length}
-                </p>
-                <p className="mt-1 text-xs font-black text-[#111827]">
-                  Page {currentPage} of {totalPages || 1}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  disabled={!hasPreviousPage}
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  className={cn(
-                    'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
-                    hasPreviousPage
-                      ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
-                      : 'text-[#9CA3AF] cursor-not-allowed'
-                  )}
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  disabled={!hasNextPage}
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                  className={cn(
-                    'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
-                    hasNextPage
-                      ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
-                      : 'text-[#9CA3AF] cursor-not-allowed'
-                  )}
-                >
-                  Next
-                </button>
-              </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={!hasPreviousPage}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                className={cn(
+                  'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                  hasPreviousPage
+                    ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                    : 'text-[#9CA3AF] cursor-not-allowed'
+                )}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                disabled={!hasNextPage}
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                className={cn(
+                  'px-4 py-1.5 border border-[#E5E7EB] rounded-xl text-xs font-bold transition-all',
+                  hasNextPage
+                    ? 'bg-white text-[#111827] hover:bg-[#F3F4F6]'
+                    : 'text-[#9CA3AF] cursor-not-allowed'
+                )}
+              >
+                Next
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </PageLayout>
   );

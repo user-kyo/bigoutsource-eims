@@ -25,7 +25,9 @@ import {
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'motion/react';
 import { PageLayout } from '@/src/components/layout/PageLayout';
+import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { cn } from '@/src/lib/utils';
 import { generateLmsAccount } from '@/src/lib/lmsAccount';
@@ -424,17 +426,6 @@ export default function EmployeeProfile() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <PageLayout title="Employee Profile">
-        <div className="h-96 flex flex-col items-center justify-center text-[#6B7280]">
-          <Loader2 className="w-8 h-8 animate-spin mb-3" />
-          <p className="text-sm font-bold">Loading employee profile</p>
-        </div>
-      </PageLayout>
-    );
-  }
-
   const pageTitle = employee.fullName ? `Profile: ${employee.fullName}` : 'Employee Profile';
   const selectedAccount = accounts.find((account) => account.name === form.accountAssignment);
   const preview = generatedPreview(form.fullName, selectedAccount);
@@ -446,7 +437,54 @@ export default function EmployeeProfile() {
 
   return (
     <PageLayout title={pageTitle}>
-      <form onSubmit={saveProfile} className="flex flex-col gap-8 pb-12">
+      <AnimatePresence mode="wait" initial={false}>
+        {isLoading ? (
+          <motion.div key="skeleton-profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="flex flex-col gap-8 pb-12 w-full relative">
+            <div className="relative bg-white rounded-3xl border border-[#E5E7EB] overflow-hidden shadow-sm animate-pulse">
+              <div className="h-24 bg-gray-200"></div>
+              <div className="px-8 py-7 flex flex-col md:flex-row md:items-end gap-6">
+                <div className="flex-1 min-w-0">
+                  <div className="h-8 w-48 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 w-32 bg-gray-200 rounded"></div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="h-10 w-24 bg-gray-200 rounded-xl"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-8 flex flex-col gap-8">
+                <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-sm p-8 animate-pulse">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="w-9 h-9 rounded-xl bg-gray-200" />
+                    <div className="h-6 w-32 bg-gray-200 rounded" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div className="h-12 w-full bg-gray-200 rounded-xl" />
+                    <div className="h-12 w-full bg-gray-200 rounded-xl" />
+                    <div className="h-12 w-full bg-gray-200 rounded-xl" />
+                    <div className="h-12 w-full bg-gray-200 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+              <div className="lg:col-span-4 flex flex-col gap-8">
+                <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-sm p-6 animate-pulse">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="w-9 h-9 rounded-xl bg-gray-200" />
+                    <div className="h-6 w-32 bg-gray-200 rounded" />
+                  </div>
+                  <div className="space-y-6">
+                    <div className="h-12 w-full bg-gray-200 rounded-xl" />
+                    <div className="h-12 w-full bg-gray-200 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <SkeletonLoadingMessage message="Fetching personnel records..." />
+          </motion.div>
+        ) : (
+          <motion.form key="content-profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 30 }} onSubmit={saveProfile} className="flex flex-col gap-8 pb-12 w-full">
         <Link to="/directory" className="flex items-center gap-2 text-sm font-bold text-[#6B7280] hover:text-[#111827] transition-colors w-fit uppercase tracking-tighter">
           <ArrowLeft className="w-4 h-4" />
           Employee Directory
@@ -771,11 +809,25 @@ export default function EmployeeProfile() {
             </ProfileSection>
           </div>
         </div>
-      </form>
+          </motion.form>
+        )}
+      </AnimatePresence>
 
-      {canManageEmployee && showArchiveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md bg-white rounded-3xl border border-[#E5E7EB] shadow-2xl p-6">
+      <AnimatePresence>
+        {canManageEmployee && showArchiveModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="w-full max-w-md bg-white rounded-3xl border border-[#E5E7EB] shadow-2xl p-6"
+            >
             <div className="flex items-start gap-4">
               <div
                 className={`p-3 rounded-2xl ${
@@ -852,9 +904,10 @@ export default function EmployeeProfile() {
                   : 'Confirm Archive'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }

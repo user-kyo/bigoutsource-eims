@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, Building2, Check, CheckCircle2, ChevronRight, Circle, Eye, EyeOff, Lock, Mail, MapPin, ShieldCheck, User, X } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 
@@ -96,6 +96,7 @@ export default function Login() {
   const [modalError, setModalError] = useState('');
   const [registrationStep, setRegistrationStep] = useState<RegistrationStep>(0);
   const [maxUnlockedStep, setMaxUnlockedStep] = useState<RegistrationStep>(0);
+  const [isExiting, setIsExiting] = useState(false);
 
   const isRegistering = mode === 'register';
   useEffect(() => {
@@ -187,9 +188,15 @@ export default function Login() {
       }
 
       await login(email, password);
-      navigate('/', { replace: true });
+      setIsExiting(true);
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 500);
     } finally {
-      setIsLoading(false);
+      // Only set loading to false if we are not navigating away to avoid state update warning
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
     }
   };
 
@@ -216,26 +223,55 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 30, scale: 0.97 }}
+        animate={isExiting ? { opacity: 0, y: -50, scale: 0.95 } : { opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-md"
       >
-        <div className="bg-white rounded-3xl border border-[#E5E7EB] shadow-2xl p-8 md:p-10">
+        <motion.div
+          layout
+          transition={{
+            layout: { type: 'spring', stiffness: 350, damping: 35 }
+          }}
+          className="bg-white rounded-3xl border border-[#E5E7EB] shadow-2xl p-8 md:p-10 overflow-hidden"
+        >
           <div className="flex flex-col items-center mb-8">
             <div className="w-16 h-16 bg-[#111827] rounded-2xl flex items-center justify-center mb-4">
               <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-[#111827] tracking-tight">
-              {mode === 'login' ? 'Welcome Back' : 'Create an Account'}
+            <h1 className="text-2xl font-bold text-[#111827] tracking-tight text-center w-full min-h-[32px] flex items-center justify-center">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={mode}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="block"
+                >
+                  {mode === 'login' ? 'Welcome Back' : 'Create an Account'}
+                </motion.span>
+              </AnimatePresence>
             </h1>
-            <p className="text-[#6B7280] text-sm mt-2 text-center text-balance">
-              {mode === 'login'
-                ? 'Enter your credentials to access your dashboard.'
-                : 'Fill in your details to request system access.'}
+            <p className="text-[#6B7280] text-sm mt-2 text-center text-balance w-full min-h-[40px] flex items-center justify-center">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={mode}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="block"
+                >
+                  {mode === 'login'
+                    ? 'Enter your credentials to access your dashboard.'
+                    : 'Fill in your details to request system access.'}
+                </motion.span>
+              </AnimatePresence>
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 p-1 mb-6 bg-[#F3F4F6] rounded-xl">
+          <div className="grid grid-cols-2 gap-2 p-1 mb-6 bg-[#F3F4F6] rounded-xl relative z-0">
             <button
               type="button"
               onClick={() => {
@@ -243,10 +279,18 @@ export default function Login() {
                 setModalError('');
                 setRegistrationStep(0);
               }}
-              className={`py-2.5 rounded-lg text-sm font-black transition-all ${mode === 'login' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'
-                }`}
+              className="relative py-2.5 rounded-lg text-sm font-black transition-colors focus:outline-none w-full"
             >
-              Log In
+              {mode === 'login' && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+              <span className={`relative z-10 block transition-colors duration-200 ${mode === 'login' ? 'text-[#111827]' : 'text-[#6B7280] hover:text-[#111827]'}`}>
+                Log In
+              </span>
             </button>
             <button
               type="button"
@@ -254,186 +298,233 @@ export default function Login() {
                 setMode('register');
                 setModalError('');
               }}
-              className={`py-2.5 rounded-lg text-sm font-black transition-all ${mode === 'register' ? 'bg-white text-[#111827] shadow-sm' : 'text-[#6B7280] hover:text-[#111827]'
-                }`}
+              className="relative py-2.5 rounded-lg text-sm font-black transition-colors focus:outline-none w-full"
             >
-              Register
+              {mode === 'register' && (
+                <motion.div
+                  layoutId="activeTabIndicator"
+                  className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+              <span className={`relative z-10 block transition-colors duration-200 ${mode === 'register' ? 'text-[#111827]' : 'text-[#6B7280] hover:text-[#111827]'}`}>
+                Register
+              </span>
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            {isRegistering ? (
-              <div className="space-y-5">
-                <RegistrationProgress
-                  currentStep={registrationStep}
-                  maxUnlockedStep={maxUnlockedStep}
-                  firstInvalidStep={firstInvalidStep}
-                  onStepClick={handleStepNavigation}
-                />
+            <AnimatePresence mode="wait" initial={false}>
+              {isRegistering ? (
+                <motion.div
+                  key="register-container"
+                  initial={{ opacity: 0, x: 15 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -15 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  className="space-y-5"
+                >
+                  <RegistrationProgress
+                    currentStep={registrationStep}
+                    maxUnlockedStep={maxUnlockedStep}
+                    firstInvalidStep={firstInvalidStep}
+                    onStepClick={handleStepNavigation}
+                  />
 
-                {registrationStep === 0 && (
-                  <>
-                    <AuthInput
-                      icon={User}
-                      label="Full Name"
-                      type="text"
-                      value={fullName}
-                      onChange={setFullName}
-                      placeholder="e.g. Juan Dela Cruz"
-                      error={registrationErrors.fullName}
-                      required
-                    />
-                    <AuthInput
-                      icon={Mail}
-                      label="Email Address"
-                      type="email"
-                      value={email}
-                      onChange={setEmail}
-                      placeholder="name@bigoutsource.com"
-                      error={registrationErrors.email}
-                      required
-                    />
-                  </>
-                )}
+                  <AnimatePresence mode="wait" initial={false}>
+                    {registrationStep === 0 && (
+                      <motion.div
+                        key="step-0"
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-5"
+                      >
+                        <AuthInput
+                          icon={User}
+                          label="Full Name"
+                          type="text"
+                          value={fullName}
+                          onChange={setFullName}
+                          placeholder="e.g. Juan Dela Cruz"
+                          error={registrationErrors.fullName}
+                          required
+                        />
+                        <AuthInput
+                          icon={Mail}
+                          label="Email Address"
+                          type="email"
+                          value={email}
+                          onChange={setEmail}
+                          placeholder="name@bigoutsource.com"
+                          error={registrationErrors.email}
+                          required
+                        />
+                      </motion.div>
+                    )}
 
-                {registrationStep === 1 && (
-                  <>
-                    <SelectInput
-                      icon={Building2}
-                      label="Department"
-                      value={department}
-                      onChange={setDepartment}
-                      placeholder={isLoadingDepartments ? 'Loading departments...' : 'Select department'}
-                      options={departmentOptions}
-                      disabled={isLoadingDepartments || Boolean(departmentOptionsError)}
-                      error={departmentOptionsError || registrationErrors.department}
-                      required
-                    />
-                    <SelectInput
-                      icon={MapPin}
-                      label="Site"
-                      value={site}
-                      onChange={setSite}
-                      placeholder="Select site"
-                      options={SITE_OPTIONS}
-                      error={registrationErrors.site}
-                      required
-                    />
-                  </>
-                )}
+                    {registrationStep === 1 && (
+                      <motion.div
+                        key="step-1"
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-5"
+                      >
+                        <SelectInput
+                          icon={Building2}
+                          label="Department"
+                          value={department}
+                          onChange={setDepartment}
+                          placeholder={isLoadingDepartments ? 'Loading departments...' : 'Select department'}
+                          options={departmentOptions}
+                          disabled={isLoadingDepartments || Boolean(departmentOptionsError)}
+                          error={departmentOptionsError || registrationErrors.department}
+                          required
+                        />
+                        <SelectInput
+                          icon={MapPin}
+                          label="Site"
+                          value={site}
+                          onChange={setSite}
+                          placeholder="Select site"
+                          options={SITE_OPTIONS}
+                          error={registrationErrors.site}
+                          required
+                        />
+                      </motion.div>
+                    )}
 
-                {registrationStep === 2 && (
-                  <>
-                    <PasswordInput
-                      label="Password"
-                      value={password}
-                      onChange={setPassword}
-                      showPassword={showPassword}
-                      onToggleVisibility={() => setShowPassword(!showPassword)}
-                      minLength={8}
-                      error={registrationErrors.password}
-                    />
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5" aria-label={`Password strength: ${passwordStrength}`}>
-                        {PASSWORD_RULES.map((rule) => (
-                          <div
-                            key={rule.label}
-                            className={`h-1.5 flex-1 rounded-full ${rule.test(password) ? passwordStrengthColor : 'bg-[#E5E7EB]'
-                              }`}
-                          />
-                        ))}
-                        <span className="ml-2 text-[10px] font-black uppercase tracking-wider text-[#6B7280]">
-                          {passwordStrength}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 gap-1 text-[11px] text-[#6B7280]">
-                        {PASSWORD_RULES.map((rule) => {
-                          const passed = rule.test(password);
-                          return (
-                            <p key={rule.label} className={passed ? 'text-[#047857]' : 'text-[#6B7280]'}>
-                              {passed ? 'OK' : '-'} {rule.label}
-                            </p>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <PasswordInput
-                      label="Confirm Password"
-                      value={confirmPassword}
-                      onChange={setConfirmPassword}
-                      showPassword={showConfirmPassword}
-                      onToggleVisibility={() => setShowConfirmPassword(!showConfirmPassword)}
-                      minLength={8}
-                      placeholder="Re-enter password"
-                      error={registrationErrors.confirmPassword}
-                    />
-                  </>
-                )}
+                    {registrationStep === 2 && (
+                      <motion.div
+                        key="step-2"
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-5"
+                      >
+                        <PasswordInput
+                          label="Password"
+                          value={password}
+                          onChange={setPassword}
+                          showPassword={showPassword}
+                          onToggleVisibility={() => setShowPassword(!showPassword)}
+                          minLength={8}
+                          error={registrationErrors.password}
+                        />
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1.5" aria-label={`Password strength: ${passwordStrength}`}>
+                            {PASSWORD_RULES.map((rule) => (
+                              <div
+                                key={rule.label}
+                                className={`h-1.5 flex-1 rounded-full ${rule.test(password) ? passwordStrengthColor : 'bg-[#E5E7EB]'
+                                  }`}
+                              />
+                            ))}
+                            <span className="ml-2 text-[10px] font-black uppercase tracking-wider text-[#6B7280]">
+                              {passwordStrength}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 gap-1 text-[11px] text-[#6B7280]">
+                            {PASSWORD_RULES.map((rule) => {
+                              const passed = rule.test(password);
+                              return (
+                                <p key={rule.label} className={passed ? 'text-[#047857]' : 'text-[#6B7280]'}>
+                                  {passed ? 'OK' : '-'} {rule.label}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <PasswordInput
+                          label="Confirm Password"
+                          value={confirmPassword}
+                          onChange={setConfirmPassword}
+                          showPassword={showConfirmPassword}
+                          onToggleVisibility={() => setShowConfirmPassword(!showConfirmPassword)}
+                          minLength={8}
+                          placeholder="Re-enter password"
+                          error={registrationErrors.confirmPassword}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setRegistrationStep((current) => Math.max(current - 1, 0) as RegistrationStep)}
-                    disabled={registrationStep === 0 || isLoading}
-                    className="rounded-xl bg-[#F3F4F6] py-3 text-sm font-bold text-[#374151] transition-all hover:bg-[#E5E7EB] disabled:opacity-50"
-                  >
-                    Back
-                  </button>
-                  {registrationStep < 2 ? (
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={handleNextStep}
-                      disabled={currentStepHasErrors || isLoading}
-                      className="rounded-xl bg-[#111827] py-3 text-sm font-bold text-white shadow-lg shadow-[#11182720] transition-all hover:bg-[#374151] active:scale-[0.98] disabled:opacity-50"
+                      onClick={() => setRegistrationStep((current) => Math.max(current - 1, 0) as RegistrationStep)}
+                      disabled={registrationStep === 0 || isLoading}
+                      className="rounded-xl bg-[#F3F4F6] py-3 text-sm font-bold text-[#374151] transition-all hover:bg-[#E5E7EB] disabled:opacity-50"
                     >
-                      Next
+                      Back
                     </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={isLoading || !canSubmit}
-                      className="rounded-xl bg-[#111827] py-3 text-sm font-bold text-white shadow-lg shadow-[#11182720] transition-all hover:bg-[#374151] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {isLoading ? (
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        'Submit Request'
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <>
-                <AuthInput
-                  icon={Mail}
-                  label="Email Address"
-                  type="email"
-                  value={email}
-                  onChange={setEmail}
-                  placeholder="name@bigoutsource.com"
-                  required
-                />
-                <PasswordInput
-                  label="Password"
-                  value={password}
-                  onChange={setPassword}
-                  showPassword={showPassword}
-                  onToggleVisibility={() => setShowPassword(!showPassword)}
-                />
-                <button
-                  type="submit"
-                  disabled={isLoading || !canSubmit}
-                  className="w-full bg-[#111827] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#374151] shadow-lg shadow-[#11182720] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                    {registrationStep < 2 ? (
+                      <button
+                        type="button"
+                        onClick={handleNextStep}
+                        disabled={currentStepHasErrors || isLoading}
+                        className="rounded-xl bg-[#111827] py-3 text-sm font-bold text-white shadow-lg shadow-[#11182720] transition-all hover:bg-[#374151] active:scale-[0.98] disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={isLoading || !canSubmit}
+                        className="rounded-xl bg-[#111827] py-3 text-sm font-bold text-white shadow-lg shadow-[#11182720] transition-all hover:bg-[#374151] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isLoading ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          'Submit Request'
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="login-container"
+                  initial={{ opacity: 0, x: -15 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 15 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  className="space-y-5"
                 >
-                  {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    'Log In'
-                  )}
-                </button>
-              </>
-            )}
+                  <AuthInput
+                    icon={Mail}
+                    label="Email Address"
+                    type="email"
+                    value={email}
+                    onChange={setEmail}
+                    placeholder="name@bigoutsource.com"
+                    required
+                  />
+                  <PasswordInput
+                    label="Password"
+                    value={password}
+                    onChange={setPassword}
+                    showPassword={showPassword}
+                    onToggleVisibility={() => setShowPassword(!showPassword)}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading || !canSubmit}
+                    className="w-full bg-[#111827] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#374151] shadow-lg shadow-[#11182720] transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      'Log In'
+                    )}
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </form>
 
           <div className="mt-8 pt-8 border-t border-[#F3F4F6] text-center">
@@ -444,40 +535,53 @@ export default function Login() {
               Secure access for authorized users
             </p>
           </div>
-        </div>
+        </motion.div>
       </motion.div>
-      {modalError && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FEF2F2]">
-                  <AlertCircle className="h-5 w-5 text-[#DC2626]" />
+      <AnimatePresence>
+        {modalError && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+            >
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FEF2F2]">
+                    <AlertCircle className="h-5 w-5 text-[#DC2626]" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-[#111827]">Registration needs attention</h2>
+                    <p className="mt-1 text-sm text-[#6B7280]">{modalError}</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-base font-black text-[#111827]">Registration needs attention</h2>
-                  <p className="mt-1 text-sm text-[#6B7280]">{modalError}</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalError('')}
+                  className="rounded-lg p-1 text-[#9CA3AF] transition-colors hover:bg-[#F3F4F6] hover:text-[#111827]"
+                  aria-label="Close error modal"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
               <button
                 type="button"
                 onClick={() => setModalError('')}
-                className="rounded-lg p-1 text-[#9CA3AF] transition-colors hover:bg-[#F3F4F6] hover:text-[#111827]"
-                aria-label="Close error modal"
+                className="w-full rounded-xl bg-[#111827] py-3 text-sm font-bold text-white transition-all hover:bg-[#374151]"
               >
-                <X className="h-4 w-4" />
+                Review fields
               </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setModalError('')}
-              className="w-full rounded-xl bg-[#111827] py-3 text-sm font-bold text-white transition-all hover:bg-[#374151]"
-            >
-              Review fields
-            </button>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -515,7 +619,19 @@ function AuthInput({
           className="w-full pl-10 pr-4 py-3 bg-[#F3F4F6] border-none rounded-xl text-sm focus:ring-2 focus:ring-[#111827] transition-all outline-none"
         />
       </div>
-      {error && <p className="text-xs font-semibold text-[#DC2626]">{error}</p>}
+      <AnimatePresence initial={false}>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 4 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="text-xs font-semibold text-[#DC2626] overflow-hidden"
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -568,39 +684,59 @@ function SelectInput({
           />
         </button>
 
-        {isOpen && (
-          <>
-            <div
-              className="fixed inset-0 z-10"
-              onClick={() => setIsOpen(false)}
-            />
-            <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-xl shadow-[#11182714]">
-              <div className="max-h-64 overflow-y-auto">
-                {options.length > 0 ? (
-                  options.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        onChange(option);
-                        setIsOpen(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm font-semibold text-[#4B5563] transition-colors hover:bg-[#F3F4F6] focus:bg-[#F3F4F6] outline-none"
-                    >
-                      {option}
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-xs font-bold text-[#6B7280]">
-                    No options available
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setIsOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-xl shadow-[#11182714]"
+              >
+                <div className="max-h-64 overflow-y-auto">
+                  {options.length > 0 ? (
+                    options.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => {
+                          onChange(option);
+                          setIsOpen(false);
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm font-semibold text-[#4B5563] transition-colors hover:bg-[#F3F4F6] focus:bg-[#F3F4F6] outline-none"
+                      >
+                        {option}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-xs font-bold text-[#6B7280]">
+                      No options available
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
-      {error && <p className="text-xs font-semibold text-[#DC2626]">{error}</p>}
+      <AnimatePresence initial={false}>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 4 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="text-xs font-semibold text-[#DC2626] overflow-hidden"
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -647,7 +783,19 @@ function PasswordInput({
           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
       </div>
-      {error && <p className="text-xs font-semibold text-[#DC2626]">{error}</p>}
+      <AnimatePresence initial={false}>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 4 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="text-xs font-semibold text-[#DC2626] overflow-hidden"
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

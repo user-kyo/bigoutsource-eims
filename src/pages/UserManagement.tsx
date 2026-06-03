@@ -3,6 +3,8 @@ import type React from 'react';
 import { Check, CheckCircle2, Loader2, Pencil, Search, ShieldAlert, ShieldCheck, Trash2, UserX, UsersRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
+import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
+import { motion, AnimatePresence } from 'motion/react';
 import { USER_ACCOUNTS_REFRESHED_EVENT } from '@/src/components/layout/Header';
 import { AppUser, UserRole } from '@/src/types';
 import { userService } from '@/src/services/userService';
@@ -271,248 +273,324 @@ export default function UserManagement() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <SummaryCard label="Pending Requests" count={summary.pending} icon={ShieldAlert} color="text-amber-700" bg="bg-amber-50" />
-          <SummaryCard label="Active Accounts" count={summary.active} icon={UsersRound} color="text-green-700" bg="bg-green-50" />
-          <SummaryCard label="Super Admins" count={summary.superAdmins} icon={ShieldCheck} color="text-[#111827]" bg="bg-[#F3F4F6]" />
-        </div>
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-summary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="p-6 rounded-2xl border border-[#E5E7EB] bg-white shadow-sm flex items-center gap-4 animate-pulse">
+                  <div className="w-11 h-11 rounded-xl bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-24 bg-gray-200 rounded" />
+                    <div className="h-3 w-16 bg-gray-200 rounded" />
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div key="content-summary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <SummaryCard label="Pending Requests" count={summary.pending} icon={ShieldAlert} color="text-amber-700" bg="bg-amber-50" />
+              <SummaryCard label="Active Accounts" count={summary.active} icon={UsersRound} color="text-green-700" bg="bg-green-50" />
+              <SummaryCard label="Super Admins" count={summary.superAdmins} icon={ShieldCheck} color="text-[#111827]" bg="bg-[#F3F4F6]" />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left border-collapse">
-            <thead>
-              <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">User</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Role</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Department</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Site</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F3F4F6]">
-              {filteredUsers.map((user) => {
-                const isEditing = editingId === user.uid;
-                const canEdit = user.role !== 'super_admin';
-
-                return (
-                  <tr key={user.uid} className="hover:bg-[#F9FAFB] transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-[#F3F4F6] flex items-center justify-center text-[10px] font-black text-[#111827] border border-[#E5E7EB]">
-                          {(user.fullName || user.email).substring(0, 2).toUpperCase()}
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto relative">
+              <table className="w-full min-w-[980px] text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">User</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Role</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Department</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Site</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {[...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-gray-200 shrink-0"></div>
+                          <div className="flex-1 space-y-2"><div className="h-4 w-32 bg-gray-200 rounded"></div><div className="h-3 w-40 bg-gray-200 rounded"></div></div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-[#111827] truncate">{user.fullName || user.email}</p>
-                          <p className="text-[10px] text-[#9CA3AF] font-bold tracking-tighter uppercase">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {isEditing && editDraft ? (
-                        <select
-                          value={editDraft.role}
-                          onChange={(event) =>
-                            setEditDraft((current) =>
-                              current ? { ...current, role: event.target.value as UserRole } : current
-                            )
-                          }
-                          className={selectClassName()}
-                          disabled={busyId === user.uid}
-                        >
-                          {EDITABLE_ROLES.map((role) => (
-                            <option key={role} value={role}>
-                              {roleLabel(role)}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4 text-[#D1D5DB]" />
-                          <span className="text-xs font-black text-[#4B5563] uppercase tracking-tight">{roleLabel(user.role)}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {isEditing && editDraft ? (
-                        <select
-                          value={editDraft.department}
-                          onChange={(event) =>
-                            setEditDraft((current) => (current ? { ...current, department: event.target.value } : current))
-                          }
-                          className={selectClassName()}
-                          disabled={busyId === user.uid || !departmentSelectOptions.length}
-                        >
-                          <option value="">Select department</option>
-                          {departmentSelectOptions.map((department) => (
-                            <option key={department} value={department}>
-                              {department}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-xs font-bold text-[#4B5563]">{user.department || 'Unassigned'}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {isEditing && editDraft ? (
-                        <select
-                          value={editDraft.site}
-                          onChange={(event) =>
-                            setEditDraft((current) => (current ? { ...current, site: event.target.value } : current))
-                          }
-                          className={selectClassName()}
-                          disabled={busyId === user.uid || !siteSelectOptions.length}
-                        >
-                          <option value="">Select site</option>
-                          {siteSelectOptions.map((site) => (
-                            <option key={site} value={site}>
-                              {site}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-xs font-bold text-[#4B5563]">{user.site || 'San Pablo City (HQ)'}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {isEditing && editDraft ? (
-                        <select
-                          value={editDraft.status}
-                          onChange={(event) =>
-                            setEditDraft((current) =>
-                              current ? { ...current, status: event.target.value as EditableAccountStatus } : current
-                            )
-                          }
-                          className={selectClassName()}
-                          disabled={busyId === user.uid}
-                        >
-                          {EDITABLE_ACCOUNT_STATUSES.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter ${statusClass(user.status)}`}>
-                          {statusLabel(user.status)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        {isEditing ? (
-                          <>
-                            <button
-                              onClick={() => saveUser(user.uid)}
+                      </td>
+                      <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 w-28 bg-gray-200 rounded"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 w-32 bg-gray-200 rounded"></div></td>
+                      <td className="px-6 py-4"><div className="h-6 w-16 bg-gray-200 rounded-lg"></div></td>
+                      <td className="px-6 py-4"><div className="h-9 w-24 bg-gray-200 rounded-lg ml-auto"></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <SkeletonLoadingMessage message="Loading account information..." />
+            </motion.div>
+          ) : (
+            <motion.div key="content-table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: 'easeOut' }} className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
+              <table className="w-full min-w-[980px] text-left border-collapse">
+                <thead>
+                  <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">User</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Role</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Department</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Site</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {filteredUsers.map((user) => {
+                    const isEditing = editingId === user.uid;
+                    const canEdit = user.role !== 'super_admin';
+    
+                    return (
+                      <tr key={user.uid} className="hover:bg-[#F9FAFB] transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-[#F3F4F6] flex items-center justify-center text-[10px] font-black text-[#111827] border border-[#E5E7EB]">
+                              {(user.fullName || user.email).substring(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-[#111827] truncate">{user.fullName || user.email}</p>
+                              <p className="text-[10px] text-[#9CA3AF] font-bold tracking-tighter uppercase">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {isEditing && editDraft ? (
+                            <select
+                              value={editDraft.role}
+                              onChange={(event) =>
+                                setEditDraft((current) =>
+                                  current ? { ...current, role: event.target.value as UserRole } : current
+                                )
+                              }
+                              className={selectClassName()}
                               disabled={busyId === user.uid}
-                              aria-label="Save changes"
-                              className="inline-flex items-center justify-center w-9 h-9 bg-[#111827] text-white rounded-lg hover:bg-[#374151] disabled:opacity-50"
                             >
-                              {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                            </button>
-                            <button
-                              onClick={cancelEditing}
+                              {EDITABLE_ROLES.map((role) => (
+                                <option key={role} value={role}>
+                                  {roleLabel(role)}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className="w-4 h-4 text-[#D1D5DB]" />
+                              <span className="text-xs font-black text-[#4B5563] uppercase tracking-tight">{roleLabel(user.role)}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {isEditing && editDraft ? (
+                            <select
+                              value={editDraft.department}
+                              onChange={(event) =>
+                                setEditDraft((current) => (current ? { ...current, department: event.target.value } : current))
+                              }
+                              className={selectClassName()}
+                              disabled={busyId === user.uid || !departmentSelectOptions.length}
+                            >
+                              <option value="">Select department</option>
+                              {departmentSelectOptions.map((department) => (
+                                <option key={department} value={department}>
+                                  {department}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-xs font-bold text-[#4B5563]">{user.department || 'Unassigned'}</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {isEditing && editDraft ? (
+                            <select
+                              value={editDraft.site}
+                              onChange={(event) =>
+                                setEditDraft((current) => (current ? { ...current, site: event.target.value } : current))
+                              }
+                              className={selectClassName()}
+                              disabled={busyId === user.uid || !siteSelectOptions.length}
+                            >
+                              <option value="">Select site</option>
+                              {siteSelectOptions.map((site) => (
+                                <option key={site} value={site}>
+                                  {site}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-xs font-bold text-[#4B5563]">{user.site || 'San Pablo City (HQ)'}</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {isEditing && editDraft ? (
+                            <select
+                              value={editDraft.status}
+                              onChange={(event) =>
+                                setEditDraft((current) =>
+                                  current ? { ...current, status: event.target.value as EditableAccountStatus } : current
+                                )
+                              }
+                              className={selectClassName()}
                               disabled={busyId === user.uid}
-                              aria-label="Cancel editing"
-                              className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#E5E7EB] text-[#4B5563] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
                             >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {canEdit && (
+                              {EDITABLE_ACCOUNT_STATUSES.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-tighter ${statusClass(user.status)}`}>
+                              {statusLabel(user.status)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            {isEditing ? (
                               <>
                                 <button
-                                  onClick={() => startEditing(user)}
-                                  disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
-                                  aria-label="Edit user"
+                                  onClick={() => saveUser(user.uid)}
+                                  disabled={busyId === user.uid}
+                                  aria-label="Save changes"
+                                  className="inline-flex items-center justify-center w-9 h-9 bg-[#111827] text-white rounded-lg hover:bg-[#374151] disabled:opacity-50"
+                                >
+                                  {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                </button>
+                                <button
+                                  onClick={cancelEditing}
+                                  disabled={busyId === user.uid}
+                                  aria-label="Cancel editing"
                                   className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#E5E7EB] text-[#4B5563] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
                                 >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setDisablingUserId(null);
-                                    setDeleteUser(user);
-                                  }}
-                                  disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
-                                  aria-label="Delete user"
-                                  className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
+                                  <X className="w-4 h-4" />
                                 </button>
                               </>
-                            )}
-                            {user.status === 'pending' && (
-                              <button
-                                onClick={() => approveUser(user.uid)}
-                                disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
-                                className="inline-flex items-center gap-2 px-3 py-2 bg-[#111827] text-white rounded-lg text-xs font-black hover:bg-[#374151] disabled:opacity-50"
-                              >
-                                {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                Approve
-                              </button>
-                            )}
-                            {user.status === 'active' && canEdit && (
-                              disablingUserId === user.uid ? (
-                                <div className="flex items-center gap-2">
+                            ) : (
+                              <>
+                                {canEdit && (
+                                  <>
+                                    <button
+                                      onClick={() => startEditing(user)}
+                                      disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                      aria-label="Edit user"
+                                      className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#E5E7EB] text-[#4B5563] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
+                                    >
+                                      <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setDisablingUserId(null);
+                                        setDeleteUser(user);
+                                      }}
+                                      disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                      aria-label="Delete user"
+                                      className="inline-flex items-center justify-center w-9 h-9 bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
+                                {user.status === 'pending' && (
                                   <button
-                                    type="button"
-                                    onClick={() => setDisablingUserId(null)}
-                                    disabled={busyId === user.uid}
-                                    className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-black text-[#4B5563] hover:bg-[#F9FAFB] disabled:opacity-50"
+                                    onClick={() => approveUser(user.uid)}
+                                    disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                    className="inline-flex items-center gap-2 px-3 py-2 bg-[#111827] text-white rounded-lg text-xs font-black hover:bg-[#374151] disabled:opacity-50"
                                   >
-                                    Cancel
+                                    {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                    Approve
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => confirmDisableUser(user.uid)}
-                                    disabled={busyId === user.uid}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-[#B91C1C] px-3 py-2 text-xs font-black text-white hover:bg-[#991B1B] disabled:opacity-50"
-                                  >
-                                    {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
-                                    Confirm Disable
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    cancelEditing();
-                                    setDisablingUserId(user.uid);
-                                  }}
-                                  disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
-                                  className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg text-xs font-black hover:bg-[#FEF2F2] disabled:opacity-50"
-                                >
-                                  <UserX className="w-4 h-4" />
-                                  Disable
-                                </button>
-                              )
+                                )}
+                                {user.status === 'active' && canEdit && (
+                                  disablingUserId === user.uid ? (
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setDisablingUserId(null)}
+                                        disabled={busyId === user.uid}
+                                        className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-black text-[#4B5563] hover:bg-[#F9FAFB] disabled:opacity-50"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => confirmDisableUser(user.uid)}
+                                        disabled={busyId === user.uid}
+                                        className="inline-flex items-center gap-2 rounded-lg bg-[#B91C1C] px-3 py-2 text-xs font-black text-white hover:bg-[#991B1B] disabled:opacity-50"
+                                      >
+                                        {busyId === user.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserX className="w-4 h-4" />}
+                                        Confirm Disable
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        cancelEditing();
+                                        setDisablingUserId(user.uid);
+                                      }}
+                                      disabled={busyId === user.uid || editingId !== null || disablingUserId !== null}
+                                      className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg text-xs font-black hover:bg-[#FEF2F2] disabled:opacity-50"
+                                    >
+                                      <UserX className="w-4 h-4" />
+                                      Disable
+                                    </button>
+                                  )
+                                )}
+                              </>
                             )}
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {(isLoading || filteredUsers.length === 0) && (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-[#F3F4F6] rounded-2xl flex items-center justify-center mx-auto mb-4">
-                {isLoading ? <Loader2 className="w-8 h-8 text-[#9CA3AF] animate-spin" /> : <UsersRound className="w-8 h-8 text-[#D1D5DB]" />}
-              </div>
-              <h3 className="text-lg font-bold text-[#111827]">{isLoading ? 'Loading users' : 'No users found'}</h3>
-            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+    
+              {(!isLoading && filteredUsers.length === 0) && (
+                <div className="p-12 text-center">
+                  <div className="w-16 h-16 bg-[#F3F4F6] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <UsersRound className="w-8 h-8 text-[#D1D5DB]" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#111827]">No users found</h3>
+                </div>
+              )}
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
+        
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#E5E7EB] bg-white py-12 text-center shadow-sm">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F3F4F6]">
+              <Loader2 className="h-8 w-8 animate-spin text-[#9CA3AF]" />
+            </div>
+            <h3 className="text-base font-bold text-[#111827]">
+              Loading users...
+            </h3>
+          </div>
+        )}
       </div>
 
-      {deleteUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl">
+      <AnimatePresence>
+        {deleteUser && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/45 px-4 py-6 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white shadow-2xl"
+            >
             <div className="border-b border-[#E5E7EB] px-6 py-4">
               <h2 className="text-lg font-black text-[#111827]">Delete User</h2>
               <p className="mt-1 text-xs font-bold text-[#6B7280]">This permanently removes the account and cannot be undone.</p>
@@ -543,9 +621,10 @@ export default function UserManagement() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }
