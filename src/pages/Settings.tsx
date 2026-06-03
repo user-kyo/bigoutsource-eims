@@ -23,6 +23,14 @@ import { userService } from '@/src/services/userService';
 
 type SettingsTab = 'profile' | 'notifications' | 'password';
 
+const PASSWORD_RULES = [
+  { label: 'At least 8 characters', test: (value: string) => value.length >= 8 },
+  { label: 'One uppercase letter', test: (value: string) => /[A-Z]/.test(value) },
+  { label: 'One lowercase letter', test: (value: string) => /[a-z]/.test(value) },
+  { label: 'One number', test: (value: string) => /\d/.test(value) },
+  { label: 'One special character', test: (value: string) => /[^A-Za-z0-9]/.test(value) },
+];
+
 function asArray(value: any) {
   return Array.isArray(value) ? value : [];
 }
@@ -45,6 +53,31 @@ export default function Settings() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  const changePasswordErrors = useMemo(() => {
+    const errors: Record<string, string> = {};
+    if (newPassword) {
+      const missingRules = PASSWORD_RULES.filter((rule) => !rule.test(newPassword)).map((rule) => rule.label.toLowerCase());
+      if (missingRules.length) {
+        errors.newPassword = `Password must include ${missingRules.join(', ')}.`;
+      }
+    }
+    if (confirmPassword && newPassword !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+    return errors;
+  }, [newPassword, confirmPassword]);
+
+  const newPasswordStrengthScore = PASSWORD_RULES.filter((rule) => rule.test(newPassword)).length;
+  const newPasswordStrength = newPasswordStrengthScore <= 2 ? 'Weak' : newPasswordStrengthScore <= 4 ? 'Fair' : 'Strong';
+  const newPasswordStrengthColor =
+    newPasswordStrengthScore <= 2 ? 'bg-[#EF4444]' : newPasswordStrengthScore <= 4 ? 'bg-[#F59E0B]' : 'bg-[#10B981]';
+
+  const canChangePassword =
+    currentPassword.length > 0 &&
+    newPassword.length > 0 &&
+    confirmPassword.length > 0 &&
+    Object.keys(changePasswordErrors).length === 0;
 
   async function loadSettings() {
     setIsLoading(true);
@@ -115,8 +148,9 @@ export default function Settings() {
   const changePassword = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
+    if (!canChangePassword) {
+      const firstError = Object.values(changePasswordErrors)[0] || 'Please complete all password requirements.';
+      toast.error(firstError);
       return;
     }
 
@@ -267,27 +301,53 @@ export default function Settings() {
                     onChange={setCurrentPassword}
                     isVisible={visiblePasswords.current}
                     onToggleVisibility={() => setVisiblePasswords((state) => ({ ...state, current: !state.current }))}
+                    placeholder="Enter current password"
                   />
                   <PasswordInput
                     label="New Password"
                     value={newPassword}
                     onChange={setNewPassword}
-                    minLength={8}
                     isVisible={visiblePasswords.next}
                     onToggleVisibility={() => setVisiblePasswords((state) => ({ ...state, next: !state.next }))}
+                    placeholder="Enter new password"
+                    error={changePasswordErrors.newPassword}
                   />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5" aria-label={`Password strength: ${newPasswordStrength}`}>
+                      {PASSWORD_RULES.map((rule) => (
+                        <div
+                          key={rule.label}
+                          className={`h-1.5 flex-1 rounded-full ${rule.test(newPassword) ? newPasswordStrengthColor : 'bg-[#E5E7EB]'}`}
+                        />
+                      ))}
+                      <span className="ml-2 text-[10px] font-black uppercase tracking-wider text-[#6B7280]">
+                        {newPasswordStrength}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 text-[11px] text-[#6B7280]">
+                      {PASSWORD_RULES.map((rule) => {
+                        const passed = rule.test(newPassword);
+                        return (
+                          <p key={rule.label} className={passed ? 'text-[#047857]' : 'text-[#6B7280]'}>
+                            {passed ? 'OK' : '-'} {rule.label}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <PasswordInput
                     label="Confirm New Password"
                     value={confirmPassword}
                     onChange={setConfirmPassword}
-                    minLength={8}
                     isVisible={visiblePasswords.confirm}
                     onToggleVisibility={() => setVisiblePasswords((state) => ({ ...state, confirm: !state.confirm }))}
+                    placeholder="Confirm new password"
+                    error={changePasswordErrors.confirmPassword}
                   />
                   <button
                     type="submit"
-                    disabled={isSaving}
-                    className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-[#111827] px-5 py-3 text-sm font-black text-white hover:bg-[#374151] disabled:opacity-50"
+                    disabled={isSaving || !canChangePassword}
+                    className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-[#111827] px-5 py-3 text-sm font-black text-white hover:bg-[#374151] disabled:opacity-50 transition-all active:scale-[0.98]"
                   >
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
                     Change Password
@@ -390,39 +450,58 @@ function PasswordInput({
   label,
   value,
   onChange,
-  minLength,
   isVisible,
   onToggleVisibility,
+  placeholder = 'Enter password',
+  minLength = 1,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
-  minLength?: number;
   isVisible: boolean;
   onToggleVisibility: () => void;
+  placeholder?: string;
+  minLength?: number;
+  error?: string;
 }) {
   return (
-    <label className="block">
-      <span className="mb-2 block text-xs font-black uppercase tracking-wider text-[#374151]">{label}</span>
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-bold text-[#374151] uppercase tracking-wider">{label}</label>
       <div className="relative">
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
         <input
           type={isVisible ? 'text' : 'password'}
           required
           minLength={minLength}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 pr-12 text-sm outline-none focus:ring-2 focus:ring-[#111827]"
+          placeholder={placeholder}
+          className="w-full pl-10 pr-12 py-3 bg-[#F3F4F6] border-none rounded-xl text-sm focus:ring-2 focus:ring-[#111827] transition-all outline-none"
         />
         <button
           type="button"
           onClick={onToggleVisibility}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] transition-colors hover:text-[#111827]"
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#9CA3AF] hover:text-[#111827] transition-colors"
           aria-label={isVisible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
         >
           {isVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
-    </label>
+      <AnimatePresence initial={false}>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginTop: 4 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="text-xs font-semibold text-[#DC2626] overflow-hidden"
+          >
+            {error}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
