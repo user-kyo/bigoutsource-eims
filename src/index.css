@@ -68,7 +68,7 @@
 
 @layer base {
   * {
-    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, fill 0.3s ease, stroke 0.3s ease;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.15s ease, fill 0.15s ease, stroke 0.15s ease;
   }
 
   body {
@@ -82,7 +82,16 @@
   [role='button'],
   [role='link'] {
     cursor: pointer;
-    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease-out, background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, fill 0.3s ease, stroke 0.3s ease;
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease-out, background-color 0.3s ease, border-color 0.3s ease, color 0.15s ease, fill 0.15s ease, stroke 0.15s ease;
+  }
+
+  /* SVG icons inside interactive elements should snap with the button,
+     not lag at 0.3s from the global * rule */
+  button svg,
+  a svg,
+  [role='button'] svg,
+  [role='link'] svg {
+    transition: fill 0.15s ease, stroke 0.15s ease, color 0.15s ease;
   }
 
   button:active:not(:disabled),
@@ -102,6 +111,20 @@
 /* bg-white cards, modals, panels */
 .dark .bg-white {
   background-color: var(--color-surface) !important;
+}
+
+/* Elements that must stay white even in dark mode (e.g. Edit Mode button).
+   .bg-white.keep-white has specificity (0,2,1) which beats .bg-white at (0,1,1) */
+.dark .bg-white.keep-white {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  border-color: #E5E7EB !important;
+}
+/* Hover: specificity (0,4,0) beats the hover dark override at (0,3,0) */
+.dark .bg-white.keep-white:hover {
+  background-color: #F3F4F6 !important;
+  border-color: #D1D5DB !important;
+  color: #111827 !important;
 }
 
 /* bg-[#F9FAFB] page backgrounds, alt surfaces */
@@ -186,6 +209,13 @@
 /* hover:bg-[#374151] accent hover */
 .dark .hover\:bg-\[\#374151\]:hover {
   background-color: var(--color-accent-hover) !important;
+}
+
+/* hover:bg-[#111827] — in dark mode, flip to white bg + dark text so the
+   hover is clearly visible (mirrors the light-mode inversion intent) */
+.dark .hover\:bg-\[\#111827\]:hover {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
 }
 
 /* hover:bg-[#F9FAFB] hover states */

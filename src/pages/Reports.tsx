@@ -700,7 +700,7 @@ export default function Reports() {
                   <button
                     onClick={() => setSelectedReport(report)}
                     disabled={isDisabled}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#111827] hover:bg-[#111827] hover:text-white transition-all shadow-sm group-hover:border-[#111827] disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#111827] hover:bg-[#111827] hover:text-white dark:hover:bg-white dark:hover:text-[#111827] dark:hover:border-white transition-all shadow-sm group-hover:border-[#111827] disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
                   >
                     {isGenerating ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
