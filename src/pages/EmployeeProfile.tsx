@@ -764,9 +764,17 @@ export default function EmployeeProfile() {
                           )}
                         </div>
 
-                        <p className="text-[#6B7280] font-bold mt-1 uppercase text-xs tracking-widest">
-                          {employee.employeeNumber || 'No ID'} | {employee.site || 'Unassigned'}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-1 text-xs font-bold tracking-widest uppercase">
+                          <span className={cn(employee.employeeNumber ? "text-[#6B7280]" : "text-red-600 flex items-center gap-1")}>
+                            {employee.employeeNumber || 'No ID'}
+                            {!employee.employeeNumber && <ShieldAlert className="w-3.5 h-3.5" />}
+                          </span>
+                          <span className="text-[#6B7280]">|</span>
+                          <span className={cn(employee.site ? "text-[#6B7280]" : "text-red-600 flex items-center gap-1")}>
+                            {employee.site || 'Unassigned'}
+                            {!employee.site && <ShieldAlert className="w-3.5 h-3.5" />}
+                          </span>
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -901,7 +909,7 @@ export default function EmployeeProfile() {
                     <ProfileField label="Email Password" icon={Key} editing={isEditing}>
                       {isEditing ? (
                         <Input value={form.emailPassword} onChange={(value) => updateForm('emailPassword', value)} placeholder="e.g. !k8#Rz$9&Yc@2T%" />
-                      ) : (
+                      ) : employee.emailPassword ? (
                         <div className="flex items-center justify-between gap-4 w-full">
                           <span className="truncate overflow-hidden flex items-center">
                             <AnimatePresence mode="popLayout" initial={false}>
@@ -913,22 +921,20 @@ export default function EmployeeProfile() {
                                 transition={{ duration: 0.2 }}
                                 className="inline-block"
                               >
-                                {showPassword ? employee.emailPassword || 'Not Assigned' : (employee.emailPassword ? '********' : 'Not Assigned')}
+                                {showPassword ? employee.emailPassword : '********'}
                               </motion.span>
                             </AnimatePresence>
                           </span>
-                          {employee.emailPassword && (
-                            <button
-                              type="button"
-                              onClick={togglePassword}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#4B5563] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg hover:bg-[#F3F4F6] transition-colors shrink-0"
-                            >
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                              {showPassword ? 'Hide' : 'Reveal'}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={togglePassword}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#4B5563] bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg hover:bg-[#F3F4F6] transition-colors shrink-0"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            {showPassword ? 'Hide' : 'Reveal'}
+                          </button>
                         </div>
-                      )}
+                      ) : 'Not Assigned'}
                     </ProfileField>
                     <ProfileField label="LMS Account" icon={User} editing={isEditing}>
                       {isEditing ? (
@@ -1094,7 +1100,7 @@ export default function EmployeeProfile() {
                             exit={{ opacity: 0, y: 5 }}
                             transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                           >
-                            <p className="text-sm font-mono font-black text-[#111827] bg-[#F3F4F6] px-2 py-0.5 rounded w-fit overflow-hidden flex items-center">
+                            <p className={cn("text-sm font-mono font-black rounded w-fit overflow-hidden flex items-center gap-1.5", employee.windowsKey ? "text-[#111827] bg-[#F3F4F6] px-2 py-0.5" : "text-red-600 bg-transparent px-0")}>
                               <AnimatePresence mode="popLayout" initial={false}>
                                 <motion.span
                                   key={showSensitive ? 'visible' : 'hidden'}
@@ -1104,9 +1110,10 @@ export default function EmployeeProfile() {
                                   transition={{ duration: 0.2 }}
                                   className="inline-block"
                                 >
-                                  {showSensitive ? employee.windowsKey || 'Not Assigned' : (employee.windowsKey ? '*****-*****-*****-*****-*****' : 'Not Assigned')}
+                                  {employee.windowsKey ? (showSensitive ? employee.windowsKey : '*****-*****-*****-*****-*****') : 'Not Assigned'}
                                 </motion.span>
                               </AnimatePresence>
+                              {!employee.windowsKey && <ShieldAlert className="w-3.5 h-3.5" />}
                             </p>
                           </motion.div>
                         )}

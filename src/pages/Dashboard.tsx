@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowUpRight, Clock, Laptop, MapPin, UserMinus, Users, TrendingUp, BarChart3, UserPlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ArrowUpRight, Clock, Laptop, MapPin, UserMinus, Users, TrendingUp, BarChart3, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { PageLayout } from '@/src/components/layout/PageLayout';
@@ -248,29 +248,32 @@ export default function Dashboard() {
     return dist;
   }, [employees]);
 
-  const securityAlerts = useMemo(
-    () => [
+  const securityAlerts = useMemo(() => {
+    const inactiveEsetCount = devices.filter((device) => device.esetStatus === 'inactive' || device.esetStatus === 'Inactive').length;
+    const missingActivityWatchCount = devices.filter((device) => device.activityWatchStatus === 'missing' || device.activityWatchStatus === 'Missing').length;
+    const unlicensedWindowsCount = devices.filter((device) => !device.windowsKey).length;
+
+    return [
       {
         label: 'Inactive ESET',
-        value: devices.filter((device) => device.esetStatus === 'inactive' || device.esetStatus === 'Inactive').length,
-        color: '#DC2626',
-        bg: 'rgba(220, 38, 38, 0.15)',
+        value: inactiveEsetCount,
+        color: inactiveEsetCount === 0 ? '#10B981' : '#DC2626',
+        bg: inactiveEsetCount === 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(220, 38, 38, 0.15)',
       },
       {
         label: 'Missing ActivityWatch',
-        value: devices.filter((device) => device.activityWatchStatus === 'missing' || device.activityWatchStatus === 'Missing').length,
-        color: '#EA580C',
-        bg: 'rgba(234, 88, 12, 0.15)',
+        value: missingActivityWatchCount,
+        color: missingActivityWatchCount === 0 ? '#10B981' : '#EA580C',
+        bg: missingActivityWatchCount === 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 88, 12, 0.15)',
       },
       {
         label: 'Unlicensed Windows',
-        value: devices.filter((device) => !device.windowsKey).length,
-        color: '#CA8A04',
-        bg: 'rgba(202, 138, 4, 0.15)',
+        value: unlicensedWindowsCount,
+        color: unlicensedWindowsCount === 0 ? '#10B981' : '#CA8A04',
+        bg: unlicensedWindowsCount === 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(202, 138, 4, 0.15)',
       },
-    ],
-    [devices]
-  );
+    ];
+  }, [devices]);
 
   const totalPersonnel = employees.length;
 
@@ -553,14 +556,18 @@ export default function Dashboard() {
                     <div key={alert.label} className="flex items-center justify-between p-4 rounded-xl border transition-colors" style={{ borderColor: 'var(--color-border)', backgroundColor: alert.bg }}>
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg shadow-sm" style={{ backgroundColor: 'var(--color-surface)', color: alert.color }}>
-                          <AlertTriangle className="w-4 h-4" />
+                          {alert.value === 0 ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                         </div>
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>{alert.label}</p>
-                          <p className="text-lg font-black" style={{ color: alert.color }}>{alert.value} Devices</p>
+                          <p className="text-lg font-black" style={{ color: alert.color }}>
+                            {alert.value === 0 ? 'All Good' : `${alert.value} Devices`}
+                          </p>
                         </div>
                       </div>
-                      <Link to="/assets" className="text-[10px] font-black uppercase hover:underline px-2 py-1 rounded transition-colors" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}>Fix</Link>
+                      {alert.value > 0 && (
+                        <Link to="/assets" className="text-[10px] font-black uppercase hover:underline px-2 py-1 rounded transition-colors" style={{ backgroundColor: 'var(--color-surface)', color: 'var(--color-text-primary)' }}>Fix</Link>
+                      )}
                     </div>
                   ))}
                 </div>

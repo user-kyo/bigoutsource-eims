@@ -117,10 +117,9 @@ function NotificationBell() {
       setIsLoading(true);
 
       try {
-        const [settingsResult, accountListResult, alertsResult] = await Promise.allSettled([
+        const [settingsResult, accountListResult] = await Promise.allSettled([
           settingsService.get(),
-          userService.list(),
-          systemAlertService.getUnread()
+          userService.list()
         ]);
         if (!isMounted) return;
 
@@ -130,9 +129,6 @@ function NotificationBell() {
 
         const nextUsers = accountListResult.status === 'fulfilled' && Array.isArray(accountListResult.value) ? accountListResult.value : [];
         setUsers(nextUsers);
-
-        const nextAlerts = alertsResult.status === 'fulfilled' && Array.isArray(alertsResult.value) ? alertsResult.value : [];
-        setSystemAlerts(nextAlerts);
 
         window.dispatchEvent(new CustomEvent(USER_ACCOUNTS_REFRESHED_EVENT, { detail: { users: nextUsers } }));
       } catch (error) {
