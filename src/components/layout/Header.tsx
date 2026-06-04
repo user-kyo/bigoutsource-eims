@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { settingsService } from '@/src/services/settingsService';
-import { systemAlertService, type SystemAlert } from '@/src/services/systemAlertService';
 import { userService } from '@/src/services/userService';
 import { AppUser } from '@/src/types';
 import { ImportIssuesButton } from '@/src/components/imports/ImportIssuesButton';
@@ -40,14 +39,14 @@ export function Header({ title }: { title: string }) {
   return (
     <header className="h-16 border-b flex items-center justify-between px-8" style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
       <h1 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>{title}</h1>
-      
+
       <div className="flex items-center gap-6">
-        
-        
+
+
         <div className="flex items-center gap-4">
           <ImportIssuesButton />
           <NotificationBell />
-          
+
           <div className="flex items-center gap-3 pl-4 border-l" style={{ borderColor: 'var(--color-border)' }}>
             <div className="text-right">
               <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{name}</p>
@@ -71,7 +70,6 @@ function NotificationBell() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [seenPendingIds, setSeenPendingIds] = useState<Set<string>>(() => readSeenPendingRegistrationIds());
   const [activeNotificationIds, setActiveNotificationIds] = useState<Set<string>>(new Set());
-  const [systemAlerts, setSystemAlerts] = useState<SystemAlert[]>([]);
 
   const isSuperAdmin = user?.role === 'super_admin';
 
@@ -87,22 +85,17 @@ function NotificationBell() {
     [accountRequestNotifications, seenPendingIds]
   );
 
-  const unreadCount = isSuperAdmin && notifyRegistrationAttempts 
-    ? unreadPendingUsers.length + systemAlerts.length 
-    : systemAlerts.length;
+  const unreadCount = isSuperAdmin && notifyRegistrationAttempts ? unreadPendingUsers.length : 0;
 
   const openNotifications = () => {
     setIsOpen(true);
 
-    if (!unreadPendingUsers.length && !systemAlerts.length) {
+    if (!unreadPendingUsers.length) {
       setActiveNotificationIds(new Set());
       return;
     }
 
-    const unreadIds = new Set([
-      ...unreadPendingUsers.map((account) => String(account.uid)),
-      ...systemAlerts.map((alert) => String(alert.id))
-    ]);
+    const unreadIds = new Set(unreadPendingUsers.map((account) => String(account.uid)));
     const nextSeenIds = new Set(seenPendingIds);
     unreadIds.forEach((id) => nextSeenIds.add(id));
     saveSeenPendingRegistrationIds(nextSeenIds);
@@ -114,7 +107,6 @@ function NotificationBell() {
     if (!isSuperAdmin && user?.role !== 'admin') {
       setNotifyRegistrationAttempts(false);
       setUsers([]);
-      setSystemAlerts([]);
       setActiveNotificationIds(new Set());
       return;
     }
@@ -126,7 +118,7 @@ function NotificationBell() {
 
       try {
         const [settingsResult, accountListResult, alertsResult] = await Promise.allSettled([
-          settingsService.get(), 
+          settingsService.get(),
           userService.list(),
           systemAlertService.getUnread()
         ]);
@@ -138,10 +130,10 @@ function NotificationBell() {
 
         const nextUsers = accountListResult.status === 'fulfilled' && Array.isArray(accountListResult.value) ? accountListResult.value : [];
         setUsers(nextUsers);
-        
+
         const nextAlerts = alertsResult.status === 'fulfilled' && Array.isArray(alertsResult.value) ? alertsResult.value : [];
         setSystemAlerts(nextAlerts);
-        
+
         window.dispatchEvent(new CustomEvent(USER_ACCOUNTS_REFRESHED_EVENT, { detail: { users: nextUsers } }));
       } catch (error) {
         if (!isMounted) return;
@@ -188,84 +180,84 @@ function NotificationBell() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
           >
-          <motion.div
-            className="w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl"
-            style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-            onClick={(event) => event.stopPropagation()}
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-          >
-            <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: 'var(--color-border)' }}>
-              <div>
-                <h2 className="text-base font-black" style={{ color: 'var(--color-text-primary)' }}>Notifications</h2>
+            <motion.div
+              className="w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl"
+              style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+              onClick={(event) => event.stopPropagation()}
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+            >
+              <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: 'var(--color-border)' }}>
+                <div>
+                  <h2 className="text-base font-black" style={{ color: 'var(--color-text-primary)' }}>Notifications</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-xl p-2 transition-colors"
+                  style={{ color: 'var(--color-text-faint)' }}
+                  aria-label="Close notifications"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="rounded-xl p-2 transition-colors"
-                style={{ color: 'var(--color-text-faint)' }}
-                aria-label="Close notifications"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
 
-            <div className="max-h-[28rem] overflow-y-auto p-4">
-              {isLoading ? (
-                <div className="flex h-32 items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
-                </div>
-              ) : !isSuperAdmin ? (
-                <NotificationEmptyState message="Notifications are available to Super Admin users." />
-              ) : accountRequestNotifications.length > 0 ? (
-                <div className="space-y-3">
-                  {accountRequestNotifications.map((account) => (
-                    <Link
-                      key={account.uid}
-                      to="/users"
-                      onClick={() => setIsOpen(false)}
-                      className="block rounded-xl border p-4 text-left transition-colors hover:border-[#111827] hover:bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-[#111827]/20"
-                      style={
-                        activeNotificationIds.has(String(account.uid))
-                          ? { borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)' }
-                          : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }
-                      }
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="rounded-xl p-2"
-                          style={
-                            activeNotificationIds.has(String(account.uid))
-                              ? { color: '#F59E0B' }
-                              : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-muted)' }
-                          }
-                        >
-                          <ShieldAlert className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-black" style={{ color: 'var(--color-text-primary)' }}>Account request pending</p>
-                            {activeNotificationIds.has(String(account.uid)) && (
-                              <span className="rounded-full px-2 py-0.5 text-[10px] font-black uppercase" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#F59E0B' }}>
-                                New
-                              </span>
-                            )}
+              <div className="max-h-[28rem] overflow-y-auto p-4">
+                {isLoading ? (
+                  <div className="flex h-32 items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
+                  </div>
+                ) : !isSuperAdmin ? (
+                  <NotificationEmptyState message="Notifications are available to Super Admin users." />
+                ) : accountRequestNotifications.length > 0 ? (
+                  <div className="space-y-3">
+                    {accountRequestNotifications.map((account) => (
+                      <Link
+                        key={account.uid}
+                        to="/users"
+                        onClick={() => setIsOpen(false)}
+                        className="block rounded-xl border p-4 text-left transition-colors hover:border-[#111827] hover:bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-[#111827]/20"
+                        style={
+                          activeNotificationIds.has(String(account.uid))
+                            ? { borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)' }
+                            : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }
+                        }
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="rounded-xl p-2"
+                            style={
+                              activeNotificationIds.has(String(account.uid))
+                                ? { color: '#F59E0B' }
+                                : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-muted)' }
+                            }
+                          >
+                            <ShieldAlert className="h-4 w-4" />
                           </div>
-                          <p className="mt-1 truncate text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>{account.fullName || account.email}</p>
-                          <p className="mt-0.5 truncate text-[11px] font-bold" style={{ color: 'var(--color-text-muted)' }}>{account.email}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-black" style={{ color: 'var(--color-text-primary)' }}>Account request pending</p>
+                              {activeNotificationIds.has(String(account.uid)) && (
+                                <span className="rounded-full px-2 py-0.5 text-[10px] font-black uppercase" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#F59E0B' }}>
+                                  New
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 truncate text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>{account.fullName || account.email}</p>
+                            <p className="mt-0.5 truncate text-[11px] font-bold" style={{ color: 'var(--color-text-muted)' }}>{account.email}</p>
+                          </div>
                         </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <NotificationEmptyState message="No notifications right now." />
-              )}
-            </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <NotificationEmptyState message="No notifications right now." />
+                )}
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
         )}
       </AnimatePresence>
     </>
