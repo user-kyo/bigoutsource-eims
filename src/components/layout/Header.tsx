@@ -67,7 +67,7 @@ function NotificationBell() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [notifyRegistrationAttempts, setNotifyRegistrationAttempts] = useState(false);
+  const [notifyRegistrationAttempts, setNotifyRegistrationAttempts] = useState(true);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [seenPendingIds, setSeenPendingIds] = useState<Set<string>>(() => readSeenPendingRegistrationIds());
   const [activeNotificationIds, setActiveNotificationIds] = useState<Set<string>>(new Set());
@@ -80,9 +80,11 @@ function NotificationBell() {
     [users]
   );
 
+  const accountRequestNotifications = notifyRegistrationAttempts ? pendingUsers : [];
+
   const unreadPendingUsers = useMemo(
-    () => pendingUsers.filter((account) => !seenPendingIds.has(String(account.uid))),
-    [pendingUsers, seenPendingIds]
+    () => accountRequestNotifications.filter((account) => !seenPendingIds.has(String(account.uid))),
+    [accountRequestNotifications, seenPendingIds]
   );
 
   const unreadCount = isSuperAdmin && notifyRegistrationAttempts 
@@ -123,22 +125,21 @@ function NotificationBell() {
       setIsLoading(true);
 
       try {
-        const [settings, accountList, alerts] = await Promise.all([
-          isSuperAdmin ? settingsService.get().catch(() => ({ notifyRegistrationAttempts: false })) : Promise.resolve({ notifyRegistrationAttempts: false }), 
-          isSuperAdmin ? userService.list().catch(() => []) : Promise.resolve([]),
-          (isSuperAdmin || user?.role === 'admin') ? systemAlertService.getUnread().catch(() => []) : Promise.resolve([])
-        ]);
+        const [settingsResult, accountListResult] = await Promise.allSettled([settingsService.get(), userService.list()]);
         if (!isMounted) return;
 
-        const nextUsers = Array.isArray(accountList) ? accountList : [];
-        setNotifyRegistrationAttempts(Boolean(settings.notifyRegistrationAttempts));
+        if (settingsResult.status === 'fulfilled') {
+          setNotifyRegistrationAttempts(Boolean(settingsResult.value.notifyRegistrationAttempts));
+        }
+
+        const nextUsers = accountListResult.status === 'fulfilled' && Array.isArray(accountListResult.value) ? accountListResult.value : [];
         setUsers(nextUsers);
         setSystemAlerts(Array.isArray(alerts) ? alerts : []);
         window.dispatchEvent(new CustomEvent(USER_ACCOUNTS_REFRESHED_EVENT, { detail: { users: nextUsers } }));
       } catch (error) {
         if (!isMounted) return;
 
-        setNotifyRegistrationAttempts(false);
+        setUsers([]);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -192,9 +193,6 @@ function NotificationBell() {
             <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: 'var(--color-border)' }}>
               <div>
                 <h2 className="text-base font-black" style={{ color: 'var(--color-text-primary)' }}>Notifications</h2>
-                <p className="mt-1 text-xs font-bold" style={{ color: 'var(--color-text-muted)' }}>
-                  {unreadCount > 0 ? `${unreadCount} pending item${unreadCount === 1 ? '' : 's'}` : 'No pending alerts'}
-                </p>
               </div>
               <button
                 type="button"
@@ -212,62 +210,16 @@ function NotificationBell() {
                 <div className="flex h-32 items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
                 </div>
-              ) : (!isSuperAdmin && systemAlerts.length === 0) ? (
-                <NotificationEmptyState message="No pending alerts." />
-              ) : (!notifyRegistrationAttempts && systemAlerts.length === 0) ? (
-                <NotificationEmptyState message="Registration attempt notifications are turned off in Settings." />
-              ) : (pendingUsers.length > 0 || systemAlerts.length > 0) ? (
+              ) : !isSuperAdmin ? (
+                <NotificationEmptyState message="Notifications are available to Super Admin users." />
+              ) : accountRequestNotifications.length > 0 ? (
                 <div className="space-y-3">
-                  {systemAlerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className="rounded-xl border p-4 transition-colors"
-                      style={
-                        activeNotificationIds.has(String(alert.id))
-                          ? { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)' }
-                          : { borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface)' }
-                      }
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="rounded-xl p-2"
-                          style={
-                            activeNotificationIds.has(String(alert.id))
-                              ? { color: '#EF4444' }
-                              : { backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-muted)' }
-                          }
-                        >
-                          <ShieldAlert className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-black" style={{ color: 'var(--color-text-primary)' }}>
-                              {alert.type === 'MISSING_DEPARTMENT' ? 'Department Missing' : 'System Alert'}
-                            </p>
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  await systemAlertService.markAsRead(alert.id);
-                                  setSystemAlerts((prev) => prev.filter((a) => a.id !== alert.id));
-                                } catch (error) {
-                                  // ignore
-                                }
-                              }}
-                              className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[10px] font-black text-[#4B5563] transition-colors hover:bg-[#E5E7EB]"
-                            >
-                              Dismiss
-                            </button>
-                          </div>
-                          <p className="mt-1 text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>{alert.message}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {isSuperAdmin && notifyRegistrationAttempts && pendingUsers.map((account) => (
-                    <div
+                  {accountRequestNotifications.map((account) => (
+                    <Link
                       key={account.uid}
-                      className="rounded-xl border p-4 transition-colors"
+                      to="/users"
+                      onClick={() => setIsOpen(false)}
+                      className="block rounded-xl border p-4 text-left transition-colors hover:border-[#111827] hover:bg-[#F9FAFB] focus:outline-none focus:ring-2 focus:ring-[#111827]/20"
                       style={
                         activeNotificationIds.has(String(account.uid))
                           ? { borderColor: '#F59E0B', backgroundColor: 'rgba(245, 158, 11, 0.1)' }
@@ -298,25 +250,13 @@ function NotificationBell() {
                           <p className="mt-0.5 truncate text-[11px] font-bold" style={{ color: 'var(--color-text-muted)' }}>{account.email}</p>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
-                <NotificationEmptyState message="No alerts or account requests." />
+                <NotificationEmptyState message="No notifications right now." />
               )}
             </div>
-
-            {isSuperAdmin && notifyRegistrationAttempts && pendingUsers.length > 0 && (
-              <div className="border-t px-5 py-4" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-surface-secondary)' }}>
-                <Link
-                  to="/users"
-                  onClick={() => setIsOpen(false)}
-                  className="flex w-full items-center justify-center rounded-xl bg-[#111827] px-4 py-3 text-sm font-black text-white transition-colors hover:bg-[#374151]"
-                >
-                  Review Requests
-                </Link>
-              </div>
-            )}
           </motion.div>
         </motion.div>
         )}

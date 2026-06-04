@@ -305,7 +305,7 @@ export default function Assets() {
                 >
                   <button
                     onClick={() => setIsEditMode(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] bg-white rounded-xl text-sm font-bold text-[#4B5563] hover:bg-[#F9FAFB] transition-colors"
+                    className="flex items-center gap-2 px-4 py-2.5 border border-[#E5E7EB] bg-white keep-white rounded-xl text-sm font-bold text-[#4B5563] hover:shadow-md transition-all"
                   >
                     <Edit2 className="w-4 h-4" />
                     Edit Mode
