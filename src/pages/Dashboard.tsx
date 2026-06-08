@@ -301,17 +301,12 @@ export default function Dashboard() {
                     <div className="p-2 bg-[#F3F4F6] rounded-xl text-[#111827]">
                       <stat.icon className="w-5 h-5" />
                     </div>
-                    {stat.link ? (
-                      <Link to={stat.link} className={`flex items-center gap-1 text-[10px] font-bold uppercase ${stat.color} hover:underline`}>
-                        Live
-                        <ArrowUpRight className="w-3 h-3" />
-                      </Link>
-                    ) : (
+                    
                       <div className={`flex items-center gap-1 text-[10px] font-bold uppercase ${stat.color}`}>
                         Live
                         <ArrowUpRight className="w-3 h-3" />
                       </div>
-                    )}
+                    
                   </div>
                   <p className="text-xs text-[#6B7280] font-bold uppercase tracking-wider">{stat.label}</p>
                   <p className="text-3xl font-black text-[#111827] mt-1">{stat.value}</p>

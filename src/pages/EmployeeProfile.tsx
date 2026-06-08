@@ -108,6 +108,7 @@ const editableFields: Array<keyof EmployeeForm> = [
   'firstName',
   'middleName',
   'lastName',
+  'suffix',
   'accountAssignment',
   'phone',
   'address',
@@ -123,6 +124,8 @@ const editableFields: Array<keyof EmployeeForm> = [
   'esetStatus',
   'activityWatchStatus',
 ];
+
+const suffixOptions = ['Sr.', 'Jr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 function normalizeEsetStatus(value?: string): EmployeeForm['esetStatus'] {
   return value === 'Active' || value === 'active' || value === 'installed' ? 'active' : 'inactive';
@@ -219,6 +222,10 @@ function formatEmployeeName(firstName = '', middleName = '', lastName = '', suff
   return [first, middle, last, suff].filter(Boolean).join(' ');
 }
 
+function normalizePhoneInput(value = '') {
+  return value.replace(/\D/g, '').slice(0, 11);
+}
+
 function sanitizeNamePart(value = '') {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -312,6 +319,7 @@ function normalizeEmployee(emp: any): EmployeeForm {
     firstName: nameParts.firstName,
     middleName: nameParts.middleName,
     lastName: nameParts.lastName,
+    suffix: nameParts.suffix,
     accountAssignment: emp?.accountAssignment || '',
     phone: emp?.phone || '',
     address: emp?.address || '',
@@ -473,13 +481,7 @@ export default function EmployeeProfile() {
         return;
       }
     } else if (field === 'phone') {
-      if (/[^0-9\-\+\s]/.test(value)) {
-        setFormErrors((current) => ({
-          ...current,
-          phone: 'Please enter a valid phone number (numbers only).',
-        }));
-        return;
-      }
+      value = normalizePhoneInput(value);
     }
 
     setForm((current) => ({ ...current, [field]: value }));
@@ -524,8 +526,8 @@ export default function EmployeeProfile() {
       return;
     }
 
-    if (form.phone && !/^\d+$/.test(form.phone)) {
-      setFormErrors((current) => ({ ...current, phone: 'Please enter numbers only.' }));
+    if (form.phone && form.phone.length !== 11) {
+      setFormErrors((current) => ({ ...current, phone: 'Phone number must be exactly 11 digits.' }));
       toast.error('Please resolve the highlighted fields before saving');
       return;
     }
@@ -730,7 +732,12 @@ export default function EmployeeProfile() {
                             </div>
                             <div className="sm:col-span-2">
                               <Field label="Suffix">
-                                <Input value={form.suffix || ''} onChange={(value) => updateForm('suffix', value)} placeholder="e.g. Jr." />
+                                <Select value={form.suffix || ''} onChange={(value) => updateForm('suffix', value)}>
+                                  <option value="">None</option>
+                                  {suffixOptions.map((suffix) => (
+                                    <option key={suffix} value={suffix}>{suffix}</option>
+                                  ))}
+                                </Select>
                               </Field>
                             </div>
                           </div>
@@ -1267,14 +1274,7 @@ export default function EmployeeProfile() {
                       {isEditing ? (
                         <Input
                           value={form.phone}
-                          onChange={(value) => {
-                            if (!/^\d*$/.test(value)) {
-                              setFormErrors((current) => ({ ...current, phone: 'Please enter numbers only.' }));
-                              setForm((current) => ({ ...current, phone: value.replace(/\D/g, '') }));
-                            } else {
-                              updateForm('phone', value);
-                            }
-                          }}
+                          onChange={(value) => updateForm('phone', value)}
                           placeholder="e.g. 09123456789"
                           error={Boolean(formErrors.phone)}
                         />
@@ -1738,6 +1738,26 @@ function Input({
         error ? 'border-red-300 bg-red-50 focus:ring-2 focus:ring-red-500' : 'border-[#E5E7EB] focus:ring-2 focus:ring-[#111827]'
       )}
     />
+  );
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#4B5563] outline-none focus:ring-2 focus:ring-[#111827] transition-all"
+    >
+      {children}
+    </select>
   );
 }
 

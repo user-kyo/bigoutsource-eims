@@ -219,6 +219,7 @@ const directoryFields: Array<{ key: DirectoryFieldKey; label: string; render: (e
 ];
 
 const sortableFieldKeys: DirectoryFieldKey[] = directoryFields.map((field) => field.key);
+const selectableDirectoryFields = directoryFields.filter((field) => !requiredVisibleFieldKeys.includes(field.key));
 
 const initialForm: AddEmployeeForm = {
   employeeNumber: '',
@@ -254,6 +255,7 @@ const wizardSteps = [
 ];
 
 const draftStorageKey = 'employee-onboarding-draft';
+const suffixOptions = ['Sr.', 'Jr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 function titleEsetStatus(value?: string) {
   return value === 'active' || value === 'Active' || value === 'installed' ? 'Active' : 'Inactive';
@@ -337,6 +339,10 @@ function capitalizeNameInput(value = '') {
       return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
     })
     .join(' ');
+}
+
+function normalizePhoneInput(value = '') {
+  return value.replace(/\D/g, '').slice(0, 11);
 }
 
 function hasDraftData(form: AddEmployeeForm) {
@@ -565,6 +571,8 @@ export default function Directory() {
     const formattedValue =
       field === 'employeeNumber'
         ? value.toUpperCase()
+        : field === 'phone'
+          ? normalizePhoneInput(value)
         : field === 'firstName' || field === 'middleName' || field === 'lastName'
           ? capitalizeNameInput(value)
           : value;
@@ -775,8 +783,8 @@ export default function Directory() {
     if ((requireAll || step === 0) && !form.lastName.trim()) {
       errors.lastName = 'Enter the employee last name.';
     }
-    if ((requireAll || step === 0) && form.phone && !/^\d+$/.test(form.phone)) {
-      errors.phone = 'Please enter numbers only.';
+    if ((requireAll || step === 0) && form.phone && form.phone.length !== 11) {
+      errors.phone = 'Phone number must be exactly 11 digits.';
     }
     if ((requireAll || step === 1) && !form.accountAssignment.trim()) {
       errors.accountAssignment = 'Select an account or department before generating access.';
@@ -945,7 +953,7 @@ export default function Directory() {
             </button>
           </div>
           <div className="max-h-[78vh] space-y-2 overflow-y-auto pr-1">
-            {directoryFields.map((field) => {
+            {selectableDirectoryFields.map((field) => {
               const checked = isFieldVisible(field.key);
               const required = isRequiredField(field.key);
               const disabled = required || (!checked && !canSelectMoreFields);
@@ -1340,7 +1348,12 @@ export default function Directory() {
                               </div>
                               <div className="md:w-[18%] mt-[1px]">
                                 <Field label="Suffix">
-                                  <Input value={form.suffix || ''} onChange={(value) => updateForm('suffix', value)} placeholder="e.g. Jr." />
+                                  <Select value={form.suffix || ''} onChange={(value) => updateForm('suffix', value)}>
+                                    <option value="">None</option>
+                                    {suffixOptions.map((suffix) => (
+                                      <option key={suffix} value={suffix}>{suffix}</option>
+                                    ))}
+                                  </Select>
                                 </Field>
                               </div>
                             </div>
@@ -1352,14 +1365,7 @@ export default function Directory() {
                             <Field label="Phone Number" error={formErrors.phone}>
                               <Input
                                 value={form.phone}
-                                onChange={(value) => {
-                                  if (!/^\d*$/.test(value)) {
-                                    setFormErrors((current) => ({ ...current, phone: 'Please enter numbers only.' }));
-                                    setForm((current) => ({ ...current, phone: value.replace(/\D/g, '') }));
-                                  } else {
-                                    updateForm('phone', value);
-                                  }
-                                }}
+                                onChange={(value) => updateForm('phone', value)}
                                 placeholder="e.g. 09123456789"
                                 error={Boolean(formErrors.phone)}
                               />
@@ -1556,8 +1562,16 @@ export default function Directory() {
                             <Field label="Last Name" required error={formErrors.lastName}>
                               <Input value={form.lastName} onChange={(value) => updateForm('lastName', value)} placeholder="e.g. Doe" error={Boolean(formErrors.lastName)} />
                             </Field>
+                            <Field label="Suffix">
+                              <Select value={form.suffix || ''} onChange={(value) => updateForm('suffix', value)}>
+                                <option value="">None</option>
+                                {suffixOptions.map((suffix) => (
+                                  <option key={suffix} value={suffix}>{suffix}</option>
+                                ))}
+                              </Select>
+                            </Field>
                             <Field label="Phone Number" error={formErrors.phone}>
-                              <Input value={form.phone} onChange={(value) => { if (!/^\d*$/.test(value)) { setFormErrors((current) => ({ ...current, phone: 'Please enter numbers only.' })); setForm((current) => ({ ...current, phone: value.replace(/\D/g, '') })); } else { updateForm('phone', value); } }} placeholder="e.g. 09123456789" error={Boolean(formErrors.phone)} />
+                              <Input value={form.phone} onChange={(value) => updateForm('phone', value)} placeholder="e.g. 09123456789" error={Boolean(formErrors.phone)} />
                             </Field>
                             <Field label="Address">
                               <Input value={form.address} onChange={(value) => updateForm('address', value)} placeholder="e.g. 123 Main St, City" />
