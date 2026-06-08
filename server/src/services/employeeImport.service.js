@@ -39,7 +39,7 @@ function value(row, ...keys) {
 function normalizeStatus(status) {
   const next = String(status || '').trim().toLowerCase();
   if (next === 'deactivated') return { status: 'inactive', isArchived: true };
-  if (next === 'inactive') return { status: 'inactive', isArchived: true };
+  if (next === 'inactive') return { status: 'inactive', isArchived: false };
   return { status: 'active', isArchived: false };
 }
 

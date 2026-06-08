@@ -13,6 +13,15 @@ function blankToNull(value) {
   return next === '' ? null : next;
 }
 
+function toBoolean(value) {
+  if (value === undefined) return undefined;
+  if (typeof value === 'boolean') return value;
+  const next = String(value).trim().toLowerCase();
+  if (next === 'true') return true;
+  if (next === 'false') return false;
+  return Boolean(value);
+}
+
 function valueFrom(data, ...keys) {
   for (const key of keys) {
     if (data?.[key] !== undefined) return data[key];
@@ -77,8 +86,10 @@ function toDatabasePayload(data, { includeId = false } = {}) {
   if (valueFrom(data, 'windowsKey', 'windowsLicenseKey') !== undefined) {
     payload.windows_license_key = blankToNull(valueFrom(data, 'windowsKey', 'windowsLicenseKey'));
   }
-  if (data?.is_archived !== undefined) {
-    payload.is_archived = data.is_archived;
+  const isArchived = valueFrom(data, 'is_archived', 'isArchived');
+  if (isArchived !== undefined) {
+    payload.is_archived = toBoolean(isArchived);
+    if (payload.is_archived) payload.status = 'inactive';
   }
   return payload;
 }

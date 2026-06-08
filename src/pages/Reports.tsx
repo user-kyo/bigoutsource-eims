@@ -33,6 +33,26 @@ function formatDate(iso: string) {
   });
 }
 
+function isEmployeeArchived(employee: any) {
+  return employee?.isArchived === true || employee?.is_archived === true;
+}
+
+function excludeArchivedEmployees(employees: any[]) {
+  return employees.filter((employee) => !isEmployeeArchived(employee));
+}
+
+function uniqueEmployeesById(employees: any[]) {
+  return Array.from(
+    employees
+      .reduce((map, employee) => {
+        const id = String(employee?.id || employee?.employeeId || employee?.employeeNumber || '').trim();
+        if (id && !map.has(id)) map.set(id, employee);
+        return map;
+      }, new Map<string, any>())
+      .values()
+  );
+}
+
 interface SheetDef {
   name: string;
   rows: Record<string, string | number>[];
@@ -128,10 +148,11 @@ async function generateEmployeeMasterList(params?: any): Promise<ReportData> {
 
 async function generateITAssetReport(params?: any): Promise<ReportData> {
   const scope = params?.departmentScope || 'all';
-  const [employees, accounts] = await Promise.all([
+  const [allEmployees, accounts] = await Promise.all([
     employeeService.list().then(asArray),
     accountService.list().then(asArray)
   ]);
+  const employees = excludeArchivedEmployees(allEmployees);
   
   let targetAccounts = accounts;
   if (scope === 'internal') targetAccounts = accounts.filter(a => a.accountType === 'internal');
@@ -176,7 +197,7 @@ async function generateITAssetReport(params?: any): Promise<ReportData> {
 // ─── Report 3: Security Compliance Audit ─────────────────────────────────────
 
 async function generateSecurityAudit(): Promise<ReportData> {
-  const employees = asArray(await employeeService.list());
+  const employees = excludeArchivedEmployees(asArray(await employeeService.list()));
 
   const noEset = employees.filter((e) => String(e.esetStatus ?? '').toLowerCase() !== 'active');
   const noAw = employees.filter((e) => String(e.activityWatchStatus ?? '').toLowerCase() !== 'installed');
@@ -228,10 +249,11 @@ async function generateSecurityAudit(): Promise<ReportData> {
 // ─── Report 4: Site Occupancy Report ─────────────────────────────────────────
 
 async function generateSiteOccupancy(): Promise<ReportData> {
-  const [employees, sites] = await Promise.all([
+  const [allEmployees, sites] = await Promise.all([
     employeeService.list().then(asArray),
     siteService.list().then(asArray),
   ]);
+  const employees = excludeArchivedEmployees(allEmployees);
 
   // Merge known site names from both sources so every site appears even with 0 staff
   const siteNames = Array.from(
@@ -291,58 +313,60 @@ async function generateTerminationsReport(): Promise<ReportData> {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const [logs, employees] = await Promise.all([
-    auditLogService.list({ entityType: 'employee', limit: 1000 }).then(asArray),
+    auditLogService.list({ entityType: 'employees', limit: 1000 }).then(asArray),
     employeeService.list().then(asArray),
   ]);
 
-  // All employee-related audit log entries from the last 30 days
-  const recentLogs = logs.filter((log: any) => {
-    if (!log.createdAt) return false;
-    return new Date(log.createdAt) >= thirtyDaysAgo;
-  });
+  const archivedEmployees = uniqueEmployeesById(employees.filter(isEmployeeArchived));
+  const archivedEmployeeIds = new Set(archivedEmployees.map((e: any) => String(e.id || e.employeeId || e.employeeNumber || '')));
 
-  const logRows = recentLogs.map((log: any) => ({
-    'Date': formatDate(log.createdAt),
-    'Employee': log.entityLabel || log.details?.name || log.details?.fullName || log.entityId || 'Unknown',
-    'Action': log.action ?? '',
-    'Performed By': log.userEmail ?? 'System',
-    'Role': log.userRole ?? '',
-    'Details': typeof log.details === 'object' ? JSON.stringify(log.details) : String(log.details ?? ''),
-  }));
+  const latestArchiveLogByEmployee = logs
+    .filter((log: any) => {
+      if (!log.createdAt || new Date(log.createdAt) < thirtyDaysAgo) return false;
+      if (!archivedEmployeeIds.has(String(log.entityId || ''))) return false;
+      return (log.details?.changes || []).some((change: any) => {
+        const field = String(change.field || '').toLowerCase();
+        return (field === 'isarchived' || field === 'is_archived') && String(change.to).toLowerCase() === 'true';
+      });
+    })
+    .reduce((map: Map<string, any>, log: any) => {
+      const employeeId = String(log.entityId || '');
+      const current = map.get(employeeId);
+      if (!current || new Date(log.createdAt) > new Date(current.createdAt)) map.set(employeeId, log);
+      return map;
+    }, new Map<string, any>());
 
-  // Employees currently marked inactive or archived
-  const inactiveEmployees = employees.filter(
-    (e: any) => String(e.status ?? '').toLowerCase() === 'inactive' || e.isArchived
-  );
-
-  const inactiveRows = inactiveEmployees.map((e: any) => ({
+  const archivedRows = archivedEmployees.map((e: any) => {
+    const archivedLog = latestArchiveLogByEmployee.get(String(e.id || e.employeeId || e.employeeNumber || ''));
+    return {
     'Employee ID': e.id ?? '',
     'Full Name': e.fullName ?? '',
     'Status': capitalize(e.status),
     'Site': e.site ?? '',
     'Account': e.accountAssignment ?? '',
-    'Archived': e.isArchived ? 'Yes' : 'No',
+    'Archived': 'Yes',
+    'Archived Date': formatDate(archivedLog?.createdAt || e.updatedAt),
+    'Archived By': archivedLog?.userEmail ?? '',
     'Last Updated': formatDate(e.updatedAt),
-  }));
+    };
+  });
 
   const parts: string[] = [];
-  if (recentLogs.length) parts.push(`${recentLogs.length} log entries`);
-  if (inactiveEmployees.length) parts.push(`${inactiveEmployees.length} inactive employees`);
+  if (archivedEmployees.length) parts.push(`${archivedEmployees.length} archived employee${archivedEmployees.length === 1 ? '' : 's'}`);
 
   return {
     sheets: [
-      { name: 'Activity Log (30 Days)', rows: logRows },
-      { name: 'Inactive & Archived', rows: inactiveRows },
+      { name: 'Archived Employees', rows: archivedRows },
     ],
     filename: 'Recent_Terminations_Archives.xlsx',
-    message: parts.length ? parts.join(', ') : 'No recent termination activity found'
+    message: parts.length ? parts.join(', ') : 'No archived employees found'
   };
 }
 
 // ─── Report 6: Workforce Analytics ───────────────────────────────────────────
 
 async function generateWorkforceAnalytics(): Promise<ReportData> {
-  const employees = asArray(await employeeService.list());
+  const employees = excludeArchivedEmployees(asArray(await employeeService.list()));
   
   const active = employees.filter((e) => String(e.status ?? '').toLowerCase() === 'active').length;
   const inactive = employees.filter((e) => {
@@ -419,13 +443,24 @@ async function generateWorkforceAnalytics(): Promise<ReportData> {
 
 async function generateAuditHistory(params?: any): Promise<ReportData> {
   const scope = params?.departmentScope || 'all';
-  const [logs, accounts, employees] = await Promise.all([
+  const [logs, accounts, allEmployees] = await Promise.all([
     auditLogService.list({ limit: 5000 }).then(asArray),
     accountService.list().then(asArray),
     employeeService.list().then(asArray)
   ]);
-  
-  let filteredLogs = logs;
+  const employees = excludeArchivedEmployees(allEmployees);
+  const archivedEmployeeIds = new Set(
+    allEmployees
+      .filter(isEmployeeArchived)
+      .map((employee) => String(employee.id || employee.employeeId || employee.employeeNumber || ''))
+      .filter(Boolean)
+  );
+
+  let filteredLogs = logs.filter((log) => {
+    const entityType = String(log.entityType || '').toLowerCase();
+    if (entityType !== 'employees' && entityType !== 'employee') return true;
+    return !archivedEmployeeIds.has(String(log.entityId || ''));
+  });
   if (scope !== 'all') {
     let targetAccounts = accounts;
     if (scope === 'internal') targetAccounts = accounts.filter(a => a.accountType === 'internal');
@@ -472,10 +507,11 @@ async function generateAuditHistory(params?: any): Promise<ReportData> {
 async function generateDepartmentRoster(params?: any): Promise<ReportData> {
   const scope = params?.departmentScope || 'all';
   
-  const [employees, accounts] = await Promise.all([
+  const [allEmployees, accounts] = await Promise.all([
     employeeService.list().then(asArray),
     accountService.list().then(asArray)
   ]);
+  const employees = excludeArchivedEmployees(allEmployees);
 
   let targetAccounts = accounts;
   if (scope === 'internal') targetAccounts = accounts.filter(a => a.accountType === 'internal');
