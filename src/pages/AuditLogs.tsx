@@ -21,6 +21,14 @@ function formatDateToParts(value?: string) {
   };
 }
 
+function getTodayDateInputValue() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function cleanString(str: string) {
   if (!str) return '-';
   const cleaned = str
@@ -137,16 +145,27 @@ export default function AuditLogs() {
   const [undoTargetLog, setUndoTargetLog] = useState<any | null>(null);
   const [isUndoing, setIsUndoing] = useState(false);
   const recordsPerPage = 5;
+  const todayDate = useMemo(() => getTodayDateInputValue(), []);
 
   useEffect(() => {
     setCurrentPage(1);
   }, [search, actionFilter, entityFilter, userFilter, startDate, endDate, sortConfig]);
 
   useEffect(() => {
+    if (startDate && startDate > todayDate) {
+      setStartDate(todayDate);
+      return;
+    }
+
+    if (endDate && endDate > todayDate) {
+      setEndDate(todayDate);
+      return;
+    }
+
     if (startDate && endDate && endDate < startDate) {
       setEndDate('');
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, todayDate]);
 
   useEffect(() => {
     let isMounted = true;
@@ -296,8 +315,9 @@ export default function AuditLogs() {
                 onFocus={(e) => (e.target.type = "date")}
                 onBlur={(e) => (!e.target.value ? (e.target.type = "text") : null)}
                 value={startDate}
+                max={todayDate}
                 onChange={(e) => {
-                  const nextStartDate = e.target.value;
+                  const nextStartDate = e.target.value > todayDate ? todayDate : e.target.value;
                   setStartDate(nextStartDate);
                   if (nextStartDate && endDate && endDate < nextStartDate) setEndDate('');
                 }}
@@ -311,8 +331,9 @@ export default function AuditLogs() {
                 onBlur={(e) => (!e.target.value ? (e.target.type = "text") : null)}
                 value={endDate}
                 min={startDate || undefined}
+                max={todayDate}
                 onChange={(e) => {
-                  const nextEndDate = e.target.value;
+                  const nextEndDate = e.target.value > todayDate ? todayDate : e.target.value;
                   if (startDate && nextEndDate && nextEndDate < startDate) return;
                   setEndDate(nextEndDate);
                 }}

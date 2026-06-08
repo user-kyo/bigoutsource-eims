@@ -187,6 +187,12 @@ export const EmployeeService = {
     const before = await EmployeeModel.findById(id);
     if (!before) throw new AppError('Employee not found', 404);
 
+    const archiveValue = data?.is_archived ?? data?.isArchived;
+    const willBeArchived = archiveValue === undefined ? before.isArchived : archiveValue === true || String(archiveValue).toLowerCase() === 'true';
+    if (willBeArchived) {
+      data = { ...data, status: 'inactive' };
+    }
+
     const employee = await EmployeeModel.update(id, generatedFieldsChanged(data) ? await withGeneratedIdentity(data, before) : data);
     if (!employee) throw new AppError('Employee not found', 404);
 

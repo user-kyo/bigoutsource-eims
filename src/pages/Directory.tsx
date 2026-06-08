@@ -256,6 +256,11 @@ const wizardSteps = [
 
 const draftStorageKey = 'employee-onboarding-draft';
 const suffixOptions = ['Sr.', 'Jr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+const fieldCharacterLimits: Partial<Record<keyof AddEmployeeForm, number>> = {
+  rustdeskId: 10,
+  remoteId: 10,
+  windowsKey: 25,
+};
 
 function titleEsetStatus(value?: string) {
   return value === 'active' || value === 'Active' || value === 'installed' ? 'Active' : 'Inactive';
@@ -343,6 +348,11 @@ function capitalizeNameInput(value = '') {
 
 function normalizePhoneInput(value = '') {
   return value.replace(/\D/g, '').slice(0, 11);
+}
+
+function applyCharacterLimit(field: keyof AddEmployeeForm, value: string) {
+  const limit = fieldCharacterLimits[field];
+  return limit ? value.slice(0, limit) : value;
 }
 
 function hasDraftData(form: AddEmployeeForm) {
@@ -575,7 +585,7 @@ export default function Directory() {
           ? normalizePhoneInput(value)
         : field === 'firstName' || field === 'middleName' || field === 'lastName'
           ? capitalizeNameInput(value)
-          : value;
+          : applyCharacterLimit(field, value);
 
     setForm((current) => ({ ...current, [field]: formattedValue }));
     setIsReviewConfirmed(false);

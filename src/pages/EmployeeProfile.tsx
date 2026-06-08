@@ -126,6 +126,11 @@ const editableFields: Array<keyof EmployeeForm> = [
 ];
 
 const suffixOptions = ['Sr.', 'Jr.', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+const fieldCharacterLimits: Partial<Record<keyof EmployeeForm, number>> = {
+  rustdeskId: 10,
+  remoteId: 10,
+  windowsKey: 25,
+};
 
 function normalizeEsetStatus(value?: string): EmployeeForm['esetStatus'] {
   return value === 'Active' || value === 'active' || value === 'installed' ? 'active' : 'inactive';
@@ -224,6 +229,11 @@ function formatEmployeeName(firstName = '', middleName = '', lastName = '', suff
 
 function normalizePhoneInput(value = '') {
   return value.replace(/\D/g, '').slice(0, 11);
+}
+
+function applyCharacterLimit(field: keyof EmployeeForm, value: string) {
+  const limit = fieldCharacterLimits[field];
+  return limit ? value.slice(0, limit) : value;
 }
 
 function sanitizeNamePart(value = '') {
@@ -482,6 +492,8 @@ export default function EmployeeProfile() {
       }
     } else if (field === 'phone') {
       value = normalizePhoneInput(value);
+    } else if (typeof value === 'string') {
+      value = applyCharacterLimit(field, value);
     }
 
     setForm((current) => ({ ...current, [field]: value }));
@@ -582,10 +594,7 @@ export default function EmployeeProfile() {
     try {
       const newValue = !employee.isArchived;
 
-      const updated = await employeeService.update(id, {
-        ...employee,
-        is_archived: newValue,
-      });
+      const updated = await employeeService.update(id, { is_archived: newValue });
 
       const normalized = normalizeEmployee(updated);
 
