@@ -355,6 +355,8 @@ export const EmployeeImportService = {
     }
 
     const deleted = await EmployeeImportModel.removeByIds(ids);
+    const employeeIds = deleted.map((row) => row.normalizedData?.employeeNumber).filter(Boolean);
+
     await AuditLogModel.create({
       userId: user?.id,
       userEmail: user?.email,
@@ -363,6 +365,7 @@ export const EmployeeImportService = {
       details: {
         requested: ids.length,
         deleted: deleted.length,
+        employeeIds: employeeIds.length ? employeeIds : undefined,
         rowIds: deleted.map((row) => row.id),
       },
     });
@@ -387,6 +390,7 @@ export const EmployeeImportService = {
         sourceRow: row.sourceRow,
         status: row.status,
         duplicateKey: row.duplicateKey,
+        employeeId: row.normalizedData?.employeeNumber || undefined,
       },
     });
 
@@ -406,6 +410,8 @@ export const EmployeeImportService = {
       await EmployeeImportModel.remove(row.id);
     }
 
+    const employeeIds = targets.map((row) => row.normalizedData?.employeeNumber).filter(Boolean);
+
     await AuditLogModel.create({
       userId: user?.id,
       userEmail: user?.email,
@@ -415,6 +421,7 @@ export const EmployeeImportService = {
       details: {
         type,
         deleted: targets.length,
+        employeeIds: employeeIds.length ? employeeIds : undefined,
       },
     });
 

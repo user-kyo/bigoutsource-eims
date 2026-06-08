@@ -74,10 +74,30 @@ function detailsItems(details: any) {
 
   return Object.entries(details)
     .filter(([key]) => key !== 'changes')
-    .map(([key, value]) => ({
-      field: formatFieldName(key),
-      value: formatValue(value),
-    }));
+    .map(([key, value]) => {
+      let field = formatFieldName(key);
+      let val = formatValue(value);
+
+      // Handle raw UUID arrays (like rowIds) cleaner
+      if (key === 'rowIds' && Array.isArray(value)) {
+        field = 'Target Records';
+        val = `${value.length} record${value.length === 1 ? '' : 's'}`;
+      }
+
+      // Handle employeeIds cleaner, with truncation for large arrays
+      let isExpandableArray = false;
+      if (key === 'employeeIds' && Array.isArray(value)) {
+        field = 'Employee IDs';
+        val = value;
+        isExpandableArray = true;
+      }
+
+      return {
+        field,
+        value: val,
+        isExpandableArray,
+      };
+    });
 }
 
 function detailsText(details: any) {
@@ -86,7 +106,13 @@ function detailsText(details: any) {
   if (!items.length) return 'No details recorded';
 
   return items
-    .map((item: any) => ('to' in item ? `${item.field}: "${item.from}" to "${item.to}"` : `${item.field}: ${item.value}`))
+    .map((item: any) => {
+      if ('to' in item) {
+        return `${item.field}: "${item.from}" to "${item.to}"`;
+      }
+      const valText = item.isExpandableArray ? item.value.join(', ') : item.value;
+      return `${item.field}: ${valText}`;
+    })
     .join('; ');
 }
 
@@ -561,6 +587,8 @@ function AuditDetails({ details }: { details: any }) {
               <span className="text-[#D1D5DB] shrink-0 font-black">-&gt;</span>
               <span className="font-bold text-[#111827] truncate flex-1">{item.to}</span>
             </div>
+          ) : item.isExpandableArray ? (
+            <ExpandableArrayValue items={item.value} />
           ) : (
             <div className="text-xs font-bold text-[#111827] break-all">
               {item.value}
@@ -568,6 +596,42 @@ function AuditDetails({ details }: { details: any }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function ExpandableArrayValue({ items }: { items: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  
+  if (items.length <= 5) {
+    return <div className="text-xs font-bold text-[#111827] break-all">{items.join(', ')}</div>;
+  }
+  
+  if (expanded) {
+    return (
+      <div className="text-xs font-bold text-[#111827] break-all leading-relaxed">
+        {items.join(', ')}
+        <button 
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="ml-2 text-[10px] font-black uppercase tracking-wider text-[#2563EB] hover:text-[#1D4ED8] transition-colors inline-block"
+        >
+          Show less
+        </button>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="text-xs font-bold text-[#111827] break-all leading-relaxed">
+      {items.slice(0, 5).join(', ')}
+      <button 
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="ml-2 text-[10px] font-black uppercase tracking-wider text-[#2563EB] hover:text-[#1D4ED8] transition-colors inline-block"
+      >
+        and {items.length - 5} more
+      </button>
     </div>
   );
 }
