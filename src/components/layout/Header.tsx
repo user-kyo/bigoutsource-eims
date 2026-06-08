@@ -63,7 +63,7 @@ export function Header({ title }: { title: string }) {
 }
 
 function NotificationBell() {
-  const { user } = useAuth();
+  const { can } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notifyRegistrationAttempts, setNotifyRegistrationAttempts] = useState(true);
@@ -71,7 +71,7 @@ function NotificationBell() {
   const [seenPendingIds, setSeenPendingIds] = useState<Set<string>>(() => readSeenPendingRegistrationIds());
   const [activeNotificationIds, setActiveNotificationIds] = useState<Set<string>>(new Set());
 
-  const isSuperAdmin = user?.role === 'super_admin';
+  const canManageUsers = can('users.manage');
 
   const pendingUsers = useMemo(
     () => users.filter((account) => account.status === 'pending'),
@@ -85,7 +85,7 @@ function NotificationBell() {
     [accountRequestNotifications, seenPendingIds]
   );
 
-  const unreadCount = isSuperAdmin && notifyRegistrationAttempts ? unreadPendingUsers.length : 0;
+  const unreadCount = canManageUsers && notifyRegistrationAttempts ? unreadPendingUsers.length : 0;
 
   const openNotifications = () => {
     setIsOpen(true);
@@ -104,7 +104,7 @@ function NotificationBell() {
   };
 
   useEffect(() => {
-    if (!isSuperAdmin && user?.role !== 'admin') {
+    if (!canManageUsers) {
       setNotifyRegistrationAttempts(false);
       setUsers([]);
       setActiveNotificationIds(new Set());
@@ -143,7 +143,7 @@ function NotificationBell() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, [isSuperAdmin, user?.role]);
+  }, [canManageUsers]);
 
   return (
     <>
@@ -165,7 +165,7 @@ function NotificationBell() {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-start justify-end bg-[#111827]/30 px-4 py-20 sm:px-8"
+            className="fixed inset-0 z-[100] flex items-start justify-end bg-[#111827]/30 px-4 py-20 sm:px-8"
             onClick={() => setIsOpen(false)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -201,7 +201,7 @@ function NotificationBell() {
                 <div className="flex h-32 items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
                 </div>
-              ) : !isSuperAdmin ? (
+              ) : !canManageUsers ? (
                 <NotificationEmptyState message="Notifications are available to Super Admin users." />
               ) : accountRequestNotifications.length > 0 ? (
                 <div className="space-y-3">

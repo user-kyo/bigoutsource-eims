@@ -10,6 +10,7 @@ import { employeeService } from '@/src/services/employeeService';
 import { siteService } from '@/src/services/siteService';
 import { auditLogService } from '@/src/services/auditLogService';
 import { accountService } from '@/src/services/accountService';
+import { useAuth } from '@/src/contexts/AuthContext';
 
 // ─── Shared utilities ─────────────────────────────────────────────────────────
 
@@ -623,6 +624,7 @@ const REPORTS: ReportDef[] = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Reports() {
+  const { can } = useAuth();
   const [generating, setGenerating] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<typeof REPORTS[number] | null>(null);
@@ -667,6 +669,7 @@ export default function Reports() {
 
   function confirmDownload() {
     if (!previewData || !selectedFormat) return;
+    if (!can('reports.export')) return;
     try {
       buildWorkbook(previewData.sheets, previewData.filename, selectedFormat);
       toast.success(previewData.message);
@@ -998,6 +1001,7 @@ export default function Reports() {
                   >
                     Cancel
                   </button>
+                  {can('reports.export') && (
                   <button
                     onClick={confirmDownload}
                     disabled={!previewData?.sheets.some(s => s.rows.length > 0)}
@@ -1006,6 +1010,7 @@ export default function Reports() {
                     <Download className="w-4 h-4" />
                     Confirm & Download
                   </button>
+                  )}
                 </div>
               </div>
             </motion.div>

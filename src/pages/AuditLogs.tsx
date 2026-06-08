@@ -6,6 +6,7 @@ import { PageLayout } from '@/src/components/layout/PageLayout';
 import { Pagination } from '@/src/components/Pagination';
 import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage';
 import { auditLogService } from '@/src/services/auditLogService';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { cn } from '@/src/lib/utils';
 
 function asArray(value: any) {
@@ -131,6 +132,7 @@ function actorLabel(log: any) {
 type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
 export default function AuditLogs() {
+  const { can } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
@@ -469,7 +471,7 @@ export default function AuditLogs() {
                             <AuditDetails details={log.details} />
                           </td>
                           <td className="px-4 py-4 text-right align-middle">
-                            {log.action.endsWith('.update') && (
+                            {can('auditlogs.undo') && log.action.endsWith('.update') && (
                               <button
                                 type="button"
                                 onClick={(e) => {

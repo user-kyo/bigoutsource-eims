@@ -1031,7 +1031,7 @@ export default function Directory() {
             </div>
 
             <div className="flex items-center gap-1.5">
-              {canManageRecords && (
+              {can('imports.manage') && (
                 <>
                   <input
                     ref={fileInputRef}
@@ -1048,21 +1048,23 @@ export default function Directory() {
                     {isStagingImport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                     {isStagingImport ? 'Staging' : 'Import'}
                   </button>
-
-                  <button
-                    onClick={() => {
-                      if (accounts.length === 0) {
-                        setShowMissingDepartmentModal(true);
-                      } else {
-                        setIsModalOpen(true);
-                      }
-                    }}
-                    className="flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5 bg-[#111827] text-white rounded-xl text-sm font-black hover:bg-[#374151] transition-all shadow-lg shadow-[#11182720]"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    Add Record
-                  </button>
                 </>
+              )}
+
+              {can('employees.create') && (
+                <button
+                  onClick={() => {
+                    if (accounts.length === 0) {
+                      setShowMissingDepartmentModal(true);
+                    } else {
+                      setIsModalOpen(true);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 whitespace-nowrap px-4 py-2.5 bg-[#111827] text-white rounded-xl text-sm font-black hover:bg-[#374151] transition-all shadow-lg shadow-[#11182720]"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add Record
+                </button>
               )}
             </div>
           </div>

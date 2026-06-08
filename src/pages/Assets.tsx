@@ -8,6 +8,7 @@ import { SkeletonLoadingMessage } from '@/src/components/SkeletonLoadingMessage'
 import { motion, AnimatePresence } from 'motion/react';
 import { deviceService } from '@/src/services/deviceService';
 import { accountService } from '@/src/services/accountService';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { AccountFilterDropdown, AccountOption, normalizeAccountList } from './Directory';
 
 function asArray(value: any) {
@@ -15,6 +16,7 @@ function asArray(value: any) {
 }
 
 export default function Assets() {
+  const { can } = useAuth();
   const [devices, setDevices] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -268,6 +270,7 @@ export default function Assets() {
             />
           </div>
           <div className="flex gap-2">
+            {can('assets.edit') && (
             <AnimatePresence mode="wait" initial={false}>
               {isEditMode ? (
                 <motion.div
@@ -313,6 +316,7 @@ export default function Assets() {
                 </motion.div>
               )}
             </AnimatePresence>
+            )}
           </div>
         </div>
 

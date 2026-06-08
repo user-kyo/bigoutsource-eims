@@ -41,10 +41,10 @@ function asArray(value: any) {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { can } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { textSize, setTextSize } = useTextSize();
-  const isSuperAdmin = user?.role === 'super_admin';
+  const isSuperAdmin = can('settings.manage');
   const [activeTab, setActiveTab] = useState<SettingsTab | null>(null);
   const [companyName, setCompanyName] = useState('BigOutsource');
   const [notifyRegistrationAttempts, setNotifyRegistrationAttempts] = useState(true);

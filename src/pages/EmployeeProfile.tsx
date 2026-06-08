@@ -378,7 +378,13 @@ export default function EmployeeProfile() {
   const [isUndoing, setIsUndoing] = useState(false);
   const canViewIT = can('employees.it.view');
   const canViewSecrets = can('employees.secrets.view');
-  const canManageEmployee = can('employees.edit') || can('employees.it.edit') || can('employees.secrets.edit');
+  const canEditHR = can('employees.edit');
+  const canEditIT = can('employees.it.edit');
+  const canEditSecrets = can('employees.secrets.edit');
+  const canManageEmployee = canEditHR || canEditIT || canEditSecrets;
+  const editingHR = isEditing && canEditHR;
+  const editingIT = isEditing && canEditIT;
+  const editingSecrets = isEditing && canEditSecrets;
 
   const missingDataStatus = useMemo(() => {
     let criticalCount = 0;
@@ -707,7 +713,7 @@ export default function EmployeeProfile() {
 
                 <div className="flex-1 min-w-0 mt-14 md:mt-0 md:ml-32">
                   <AnimatePresence mode="popLayout" initial={false}>
-                    {isEditing ? (
+                    {editingHR ? (
                       <motion.div
                         key="edit-mode"
                         initial={{ opacity: 0, y: -10 }}
@@ -837,6 +843,7 @@ export default function EmployeeProfile() {
                           Update Record
                         </button>
 
+                        {canEditHR && (
                         <button
                           type="button"
                           onClick={() => {
@@ -860,6 +867,7 @@ export default function EmployeeProfile() {
                             </>
                           )}
                         </button>
+                        )}
                       </motion.div>
                     ) : null}
                   </AnimatePresence>
@@ -871,8 +879,8 @@ export default function EmployeeProfile() {
               <motion.div variants={itemVariants} className="lg:col-span-8 space-y-8 relative z-50">
                 <ProfileSection icon={Briefcase} title="Work & Account Info" iconColorClass="text-blue-600 bg-blue-50" className="relative z-50">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                    <ProfileField label="Department/Account Type" icon={Briefcase} editing={isEditing}>
-                      {isEditing ? (
+                    <ProfileField label="Department/Account Type" icon={Briefcase} editing={editingHR}>
+                      {editingHR ? (
                         <div className={cn("relative transition-all", isAccountDropdownOpen ? "z-50" : "z-10")}>
                           <button
                             type="button"
@@ -913,12 +921,12 @@ export default function EmployeeProfile() {
                         employee.accountAssignment || 'Not Assigned'
                       )}
                     </ProfileField>
-                    <ProfileField label="BigOutsource Email" icon={Mail} editing={isEditing}>
-                      {isEditing ? <GeneratedValue value={preview.boEmail} placeholder={accountBasedPreviewPlaceholder} /> : employee.boEmail || 'Not Assigned'}
+                    <ProfileField label="BigOutsource Email" icon={Mail} editing={editingHR}>
+                      {editingHR ? <GeneratedValue value={preview.boEmail} placeholder={accountBasedPreviewPlaceholder} /> : employee.boEmail || 'Not Assigned'}
                     </ProfileField>
                     {canViewSecrets && (
-                    <ProfileField label="Email Password" icon={Key} editing={isEditing}>
-                      {isEditing ? (
+                    <ProfileField label="Email Password" icon={Key} editing={editingSecrets}>
+                      {editingSecrets ? (
                         <Input value={form.emailPassword} onChange={(value) => updateForm('emailPassword', value)} placeholder="e.g. !k8#Rz$9&Yc@2T%" />
                       ) : (
                         <div className="flex items-center justify-between gap-4 w-full">
@@ -950,8 +958,8 @@ export default function EmployeeProfile() {
                       )}
                     </ProfileField>
                     )}
-                    <ProfileField label="LMS Account" icon={User} editing={isEditing}>
-                      {isEditing ? (
+                    <ProfileField label="LMS Account" icon={User} editing={editingHR}>
+                      {editingHR ? (
                         <div className="px-3 py-2.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm font-bold text-[#4B5563]">
                           {generateLmsAccount(formatEmployeeName(form.firstName, form.lastName, '', '')) || 'Generated after name is entered'}
                         </div>
@@ -959,8 +967,8 @@ export default function EmployeeProfile() {
                         employee.lmsAccount || 'Not Assigned'
                       )}
                     </ProfileField>
-                    <ProfileField label="Status" icon={ShieldCheck} editing={isEditing}>
-                      {isEditing ? (
+                    <ProfileField label="Status" icon={ShieldCheck} editing={editingHR}>
+                      {editingHR ? (
                         <div className={cn("relative transition-all", isStatusDropdownOpen ? "z-50" : "z-10")}>
                           <button
                             type="button"
@@ -1015,8 +1023,8 @@ export default function EmployeeProfile() {
                         formatStatus(employee.status)
                       )}
                     </ProfileField>
-                    <ProfileField label="Site" icon={MapPin} editing={isEditing}>
-                      {isEditing ? (
+                    <ProfileField label="Site" icon={MapPin} editing={editingHR}>
+                      {editingHR ? (
                         <div className={cn("relative transition-all", isSiteDropdownOpen ? "z-50" : "z-10")}>
                           <button
                             type="button"
@@ -1079,25 +1087,30 @@ export default function EmployeeProfile() {
                 {canViewIT && (
                 <ProfileSection icon={Laptop} title="Device Assets" iconColorClass="text-purple-600 bg-purple-50">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                    <ProfileField label="PC Name" icon={Laptop} editing={isEditing}>
-                      {isEditing ? <GeneratedValue value={preview.pcName} placeholder={accountBasedPreviewPlaceholder} /> : employee.pcName || 'Not Assigned'}
+                    <ProfileField label="PC Name" icon={Laptop} editing={editingIT}>
+                      {editingIT ? <GeneratedValue value={preview.pcName} placeholder={accountBasedPreviewPlaceholder} /> : employee.pcName || 'Not Assigned'}
                     </ProfileField>
-                    <ProfileField label="BIOS Date" icon={Calendar} editing={isEditing}>
-                      {isEditing ? <Input type="date" value={form.biosDate} onChange={(value) => updateForm('biosDate', value)} /> : employee.biosDate ? new Date(employee.biosDate).toLocaleDateString() : 'Not Set'}
+                    <ProfileField label="BIOS Date" icon={Calendar} editing={editingIT}>
+                      {editingIT ? <Input type="date" value={form.biosDate} onChange={(value) => updateForm('biosDate', value)} /> : employee.biosDate ? new Date(employee.biosDate).toLocaleDateString() : 'Not Set'}
                     </ProfileField>
-                    <ProfileField label="RustDesk ID" icon={Globe} editing={isEditing}>
-                      {isEditing ? <Input value={form.rustdeskId} onChange={(value) => updateForm('rustdeskId', value)} placeholder="e.g. 123 456 789" /> : employee.rustdeskId || 'Not Assigned'}
+                    {canViewSecrets && (
+                    <ProfileField label="RustDesk ID" icon={Globe} editing={editingSecrets}>
+                      {editingSecrets ? <Input value={form.rustdeskId} onChange={(value) => updateForm('rustdeskId', value)} placeholder="e.g. 123 456 789" /> : employee.rustdeskId || 'Not Assigned'}
                     </ProfileField>
-                    <ProfileField label="Remote ID" icon={Globe} editing={isEditing}>
-                      {isEditing ? <Input value={form.remoteId} onChange={(value) => updateForm('remoteId', value)} placeholder="e.g. 123 456 789" /> : employee.remoteId || 'Not Assigned'}
+                    )}
+                    {canViewSecrets && (
+                    <ProfileField label="Remote ID" icon={Globe} editing={editingSecrets}>
+                      {editingSecrets ? <Input value={form.remoteId} onChange={(value) => updateForm('remoteId', value)} placeholder="e.g. 123 456 789" /> : employee.remoteId || 'Not Assigned'}
                     </ProfileField>
+                    )}
                   </div>
 
+                  {canViewSecrets && (
                   <div className="mt-10 p-5 bg-[#F9FAFB] rounded-2xl border border-[#E5E7EB] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div className="flex-1">
                       <p className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest mb-1.5">Windows License Key</p>
                       <AnimatePresence mode="popLayout" initial={false}>
-                        {isEditing ? (
+                        {editingSecrets ? (
                           <motion.div
                             key="edit-windows"
                             initial={{ opacity: 0, y: -5 }}
@@ -1151,6 +1164,7 @@ export default function EmployeeProfile() {
                       )}
                     </AnimatePresence>
                   </div>
+                  )}
                 </ProfileSection>
                 )}
               </motion.div>
@@ -1162,7 +1176,7 @@ export default function EmployeeProfile() {
                     <ComplianceField
                       label="ESET Status"
                       value={formatStatus(employee.esetStatus)}
-                      editing={isEditing}
+                      editing={editingIT}
                       status={employee.esetStatus === 'active'}
                     >
                       <div className={cn("relative transition-all", isEsetDropdownOpen ? "z-50" : "z-10")}>
@@ -1219,7 +1233,7 @@ export default function EmployeeProfile() {
                     <ComplianceField
                       label="ActivityWatch"
                       value={employee.activityWatchStatus === 'installed' ? 'Installed' : 'Missing'}
-                      editing={isEditing}
+                      editing={editingIT}
                       status={employee.activityWatchStatus === 'installed'}
                     >
                       <div className={cn("relative transition-all", isActivityWatchDropdownOpen ? "z-50" : "z-10")}>
@@ -1279,8 +1293,8 @@ export default function EmployeeProfile() {
 
                 <ProfileSection icon={Phone} title="Contact & Location" compact iconColorClass="text-teal-600 bg-teal-50">
                   <div className="space-y-6">
-                    <ProfileField label="Phone Number" editing={isEditing} error={formErrors.phone}>
-                      {isEditing ? (
+                    <ProfileField label="Phone Number" editing={editingHR} error={formErrors.phone}>
+                      {editingHR ? (
                         <Input
                           value={form.phone}
                           onChange={(value) => updateForm('phone', value)}
@@ -1289,13 +1303,14 @@ export default function EmployeeProfile() {
                         />
                       ) : employee.phone || 'Not Assigned'}
                     </ProfileField>
-                    <ProfileField label="Address" editing={isEditing}>
-                      {isEditing ? <Input value={form.address} onChange={(value) => updateForm('address', value)} placeholder="e.g. 123 Main St, City" /> : employee.address || 'Not Assigned'}
+                    <ProfileField label="Address" editing={editingHR}>
+                      {editingHR ? <Input value={form.address} onChange={(value) => updateForm('address', value)} placeholder="e.g. 123 Main St, City" /> : employee.address || 'Not Assigned'}
                     </ProfileField>
                   </div>
                 </ProfileSection>
               </motion.div>
 
+              {can('auditlogs.view') && (
               <motion.div variants={itemVariants} className="lg:col-span-12">
                 <ProfileSection icon={Clock} title="Audit History" iconColorClass="text-indigo-600 bg-indigo-50">
                   <div className="relative pl-4 md:pl-0">
@@ -1317,7 +1332,7 @@ export default function EmployeeProfile() {
                                   <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-indigo-100 text-indigo-600 shadow">
                                     <Clock className="w-4 h-4" />
                                   </div>
-                                  {log.action.endsWith('.update') && (
+                                  {can('auditlogs.undo') && log.action.endsWith('.update') && (
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -1411,13 +1426,14 @@ export default function EmployeeProfile() {
                   </div>
                 </ProfileSection>
               </motion.div>
+              )}
             </motion.div>
           </motion.form>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
-        {canManageEmployee && showArchiveModal && (
+        {canEditHR && showArchiveModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
