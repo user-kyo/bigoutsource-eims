@@ -10,6 +10,25 @@ import { deviceService } from '@/src/services/deviceService';
 import { accountService } from '@/src/services/accountService';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { AccountFilterDropdown, AccountOption, normalizeAccountList } from './Directory';
+import { cn } from '@/src/lib/utils';
+
+export type AssetFieldKey = 'assigneeName' | 'pcName' | 'biosDate' | 'windowsKey' | 'remoteId' | 'rustdeskId' | 'activityWatchStatus' | 'esetStatus';
+
+export const assetFields: Array<{ key: AssetFieldKey; label: string; width: string }> = [
+  { key: 'assigneeName', label: 'Assignee', width: 'w-[20%]' },
+  { key: 'pcName', label: 'PC Name', width: 'w-[16%]' },
+  { key: 'biosDate', label: 'BIOS Date', width: 'w-[12%]' },
+  { key: 'windowsKey', label: 'Windows License Key', width: 'w-[20%]' },
+  { key: 'remoteId', label: 'Remote ID', width: 'w-[12%]' },
+  { key: 'rustdeskId', label: 'RustDesk ID', width: 'w-[12%]' },
+  { key: 'activityWatchStatus', label: 'Activity Watch', width: 'w-[12%]' },
+  { key: 'esetStatus', label: 'ESET Status', width: 'w-[12%]' },
+];
+
+export const selectableAssetFields = assetFields.filter(f => f.key !== 'assigneeName');
+const maxVisibleFieldCount = 6;
+const defaultVisibleFieldKeys: AssetFieldKey[] = ['assigneeName', 'pcName', 'windowsKey', 'remoteId', 'rustdeskId'];
+
 
 function asArray(value: any) {
   return Array.isArray(value) ? value : [];
@@ -31,6 +50,28 @@ export default function Assets() {
   const [drafts, setDrafts] = useState<Record<string, Partial<any>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [selectedFields, setSelectedFields] = useState<AssetFieldKey[] | null>(null);
+
+  const visibleFieldKeys = selectedFields ?? defaultVisibleFieldKeys;
+  const isCustomFieldView = selectedFields !== null;
+  const visibleFields = assetFields.filter((field) => visibleFieldKeys.includes(field.key));
+
+  const toggleField = (field: AssetFieldKey) => {
+    setSelectedFields((current) => {
+      const nextFields = current ?? defaultVisibleFieldKeys;
+
+      if (nextFields.includes(field)) {
+        return nextFields.filter((item) => item !== field);
+      }
+
+      if (nextFields.length >= maxVisibleFieldCount) {
+        toast.error(`You can display up to ${maxVisibleFieldCount - 1} selected items at a time`);
+        return current;
+      }
+
+      return [...nextFields, field];
+    });
+  };
 
   const hasChanges = useMemo(() => {
     return Object.entries(drafts).some(([id, draft]) => {
@@ -240,9 +281,53 @@ export default function Assets() {
 
   return (
     <PageLayout title="IT Asset Management" contentClassName="w-full max-w-[1600px] mx-auto">
-      <div className="flex flex-col gap-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-1 items-center gap-4">
+      <div className="grid w-full grid-cols-1 gap-6 xl:grid-cols-[14rem_minmax(0,1fr)]">
+        <aside className="sticky top-0 hidden self-start rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-xl shadow-[#11182714] xl:block min-h-[80vh]">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF]">Table View</p>
+              <p className="mt-1 text-xs font-bold text-[#4B5563]">{isCustomFieldView ? `${visibleFieldKeys.length - 1}/${maxVisibleFieldCount - 1} selected` : 'Default fields shown'}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedFields(null)}
+              disabled={!isCustomFieldView}
+              className="rounded-lg border border-[#E5E7EB] px-2 py-1 text-[10px] font-black uppercase text-[#6B7280] transition-all hover:text-[#111827] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Reset
+            </button>
+          </div>
+          <div className="max-h-[78vh] space-y-2 overflow-y-auto pr-1">
+            {selectableAssetFields.map((field) => {
+              const checked = visibleFieldKeys.includes(field.key);
+              const disabled = !checked && visibleFieldKeys.length >= maxVisibleFieldCount;
+
+              return (
+                <label
+                  key={field.key}
+                  className={cn(
+                    'flex items-start gap-2 rounded-xl border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#374151] transition-all',
+                    checked ? 'bg-[#F9FAFB]' : 'bg-white',
+                    disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-[#D1D5DB]'
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={() => toggleField(field.key)}
+                    className="mt-0.5 h-4 w-4 rounded border-[#D1D5DB] accent-[#111827]"
+                  />
+                  <span className="leading-snug">{field.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </aside>
+
+        <div className="flex flex-col gap-6 min-w-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-1 items-center gap-4">
             <div className="relative max-w-md flex-1">
               <Search className="w-4 h-4 text-[#9CA3AF] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -356,13 +441,7 @@ export default function Assets() {
               <table className="w-full text-left border-collapse table-fixed min-w-[900px]">
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                    {[
-                      { key: 'pcName', label: 'Asset Identifier', width: 'w-[16%]' },
-                      { key: 'assigneeName', label: 'Assignee', width: 'w-[24%]' },
-                      { key: 'windowsKey', label: 'License Type', width: 'w-[28%]' },
-                      { key: 'remoteId', label: 'Remote ID', width: 'w-[12%]' },
-                      { key: 'rustdeskId', label: 'RustDesk ID', width: 'w-[12%]' },
-                    ].map((header) => {
+                    {visibleFields.map((header) => {
                       const isActiveSort = sortConfig?.key === header.key;
                       const SortIcon = isActiveSort ? (sortConfig?.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
 
@@ -373,8 +452,8 @@ export default function Assets() {
                             onClick={() => toggleSort(header.key)}
                             className={`flex items-center gap-1.5 hover:text-[#111827] transition-colors ${isActiveSort ? 'text-[#111827]' : ''}`}
                           >
-                            {header.label}
-                            <SortIcon className="w-3.5 h-3.5" />
+                            <span className="truncate">{header.label}</span>
+                            <SortIcon className="w-3.5 h-3.5 shrink-0" />
                           </button>
                         </th>
                       );
@@ -385,11 +464,9 @@ export default function Assets() {
                 <tbody className="">
                   {[...Array(recordsPerPage)].map((_, i) => (
                     <tr key={i} className="animate-pulse border-b border-[#F3F4F6] last:border-0">
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                      <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded-lg w-20"></div></td>
-                      <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded-lg w-24"></div></td>
+                      {visibleFields.map((f) => (
+                        <td key={f.key} className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                      ))}
                       <td className="px-6 py-4 text-right"><div className="h-4 bg-gray-200 rounded w-16 ml-auto"></div></td>
                     </tr>
                   ))}
@@ -414,13 +491,7 @@ export default function Assets() {
               <table className="w-full text-left border-collapse table-fixed min-w-[900px]">
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                    {[
-                      { key: 'pcName', label: 'Asset Identifier', width: 'w-[16%]' },
-                      { key: 'assigneeName', label: 'Assignee', width: 'w-[24%]' },
-                      { key: 'windowsKey', label: 'License Type', width: 'w-[28%]' },
-                      { key: 'remoteId', label: 'Remote ID', width: 'w-[12%]' },
-                      { key: 'rustdeskId', label: 'RustDesk ID', width: 'w-[12%]' },
-                    ].map((header) => {
+                    {visibleFields.map((header) => {
                       const isActiveSort = sortConfig?.key === header.key;
                       const SortIcon = isActiveSort ? (sortConfig?.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
 
@@ -431,8 +502,8 @@ export default function Assets() {
                             onClick={() => toggleSort(header.key)}
                             className={`flex items-center gap-1.5 hover:text-[#111827] transition-colors ${isActiveSort ? 'text-[#111827]' : ''}`}
                           >
-                            {header.label}
-                            <SortIcon className="w-3.5 h-3.5" />
+                            <span className="truncate">{header.label}</span>
+                            <SortIcon className="w-3.5 h-3.5 shrink-0" />
                           </button>
                         </th>
                       );
@@ -449,74 +520,83 @@ export default function Assets() {
                       transition={{ delay: index * 0.05, type: 'spring', stiffness: 380, damping: 30 }}
                       className="hover:bg-[#F9FAFB] transition-colors border-b border-[#F3F4F6] last:border-0"
                     >
-                      <AnimatedCell
-                        isEditMode={isEditMode}
-                        editContent={
-                          <>
-                            <p className="text-sm font-black text-[#111827] font-mono px-2 py-1">{device.pcName || 'Unassigned'}</p>
-                            <input type="date" value={drafts[device.id]?.biosDate ?? (device.biosDate || '')} onChange={(e) => handleUpdateDraft(device.id, 'biosDate', e.target.value)} className="w-full px-3 py-2.5 mt-2 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" />
-                          </>
-                        }
-                        viewContent={
-                          <>
-                            <p className="text-sm font-black text-[#111827] font-mono">{device.pcName || 'Unassigned'}</p>
-                            <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-tighter mt-0.5">BIOS: {device.biosDate || 'Not set'}</p>
-                          </>
-                        }
-                      />
-                      <AnimatedCell
-                        isEditMode={isEditMode}
-                        editContent={
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-[#4B5563]">{device.assigneeName || 'Unassigned'}</span>
-                          </div>
-                        }
-                        viewContent={
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-[#4B5563]">{device.assigneeName || 'Unassigned'}</span>
-                            <Link to={`/employee/${device.assigneeId || device.id}`}><ExternalLink className="w-3 h-3 text-[#D1D5DB]" /></Link>
-                          </div>
-                        }
-                      />
-                      <AnimatedCell
-                        isEditMode={isEditMode}
-                        editContent={
-                          <NumericInput value={drafts[device.id]?.windowsKey ?? (device.windowsKey || '')} onChange={(val: string) => handleUpdateDraft(device.id, 'windowsKey', val)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" placeholder="Windows License Key" />
-                        }
-                        viewContent={
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Key className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" />
-                              <span className="text-xs font-bold text-[#111827] uppercase">{device.windowsKey ? 'Windows / Assigned' : 'No Key'}</span>
-                            </div>
-                            {device.windowsKey && (
-                              <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-tighter mt-0.5 ml-[22px]">{device.windowsKey}</p>
-                            )}
-                          </div>
-                        }
-                      />
-                      <AnimatedCell
-                        isEditMode={isEditMode}
-                        editContent={
-                          <NumericInput value={drafts[device.id]?.remoteId ?? (device.remoteId || '')} onChange={(val: string) => handleUpdateDraft(device.id, 'remoteId', val)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" placeholder="Remote ID" />
-                        }
-                        viewContent={
-                          <div className="py-1 px-3 bg-[#F3F4F6] rounded-lg w-fit">
-                            <p className="text-xs font-black text-[#111827] font-mono">{device.remoteId || 'No remote ID'}</p>
-                          </div>
-                        }
-                      />
-                      <AnimatedCell
-                        isEditMode={isEditMode}
-                        editContent={
-                          <NumericInput value={drafts[device.id]?.rustdeskId ?? (device.rustdeskId || '')} onChange={(val: string) => handleUpdateDraft(device.id, 'rustdeskId', val)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" placeholder="RustDesk ID" />
-                        }
-                        viewContent={
-                          <div className="py-1 px-3 bg-[#F3F4F6] rounded-lg w-fit">
-                            <p className="text-xs font-black text-[#111827] font-mono">{device.rustdeskId || 'No RustDesk ID'}</p>
-                          </div>
-                        }
-                      />
+                      {visibleFields.map((field) => (
+                        <AnimatedCell
+                          key={field.key}
+                          isEditMode={isEditMode}
+                          editContent={
+                            field.key === 'assigneeName' ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-[#4B5563]">{device.assigneeName || 'Unassigned'}</span>
+                              </div>
+                            ) : field.key === 'pcName' ? (
+                              <p className="text-sm font-black text-[#111827] font-mono px-2 py-1">{device.pcName || 'Unassigned'}</p>
+                            ) : field.key === 'biosDate' ? (
+                              <input type="date" value={drafts[device.id]?.biosDate ?? (device.biosDate || '')} onChange={(e) => handleUpdateDraft(device.id, 'biosDate', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" />
+                            ) : field.key === 'windowsKey' ? (
+                              <NumericInput value={drafts[device.id]?.windowsKey ?? (device.windowsKey || '')} onChange={(val: string) => handleUpdateDraft(device.id, 'windowsKey', val)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" placeholder="Windows License Key" />
+                            ) : field.key === 'remoteId' ? (
+                              <NumericInput value={drafts[device.id]?.remoteId ?? (device.remoteId || '')} onChange={(val: string) => handleUpdateDraft(device.id, 'remoteId', val)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" placeholder="Remote ID" />
+                            ) : field.key === 'rustdeskId' ? (
+                              <NumericInput value={drafts[device.id]?.rustdeskId ?? (device.rustdeskId || '')} onChange={(val: string) => handleUpdateDraft(device.id, 'rustdeskId', val)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]" placeholder="RustDesk ID" />
+                            ) : field.key === 'activityWatchStatus' ? (
+                              <select value={drafts[device.id]?.activityWatchStatus ?? (device.activityWatchStatus || 'missing')} onChange={(e) => handleUpdateDraft(device.id, 'activityWatchStatus', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]">
+                                <option value="missing">Missing</option>
+                                <option value="installed">Installed</option>
+                              </select>
+                            ) : field.key === 'esetStatus' ? (
+                              <select value={drafts[device.id]?.esetStatus ?? (device.esetStatus || 'inactive')} onChange={(e) => handleUpdateDraft(device.id, 'esetStatus', e.target.value)} className="w-full px-3 py-2.5 bg-white border border-[#E5E7EB] rounded-xl text-sm text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#111827]">
+                                <option value="inactive">Inactive</option>
+                                <option value="active">Active</option>
+                              </select>
+                            ) : null
+                          }
+                          viewContent={
+                            field.key === 'assigneeName' ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-[#4B5563]">{device.assigneeName || 'Unassigned'}</span>
+                                <Link to={`/employee/${device.assigneeId || device.id}`}><ExternalLink className="w-3 h-3 text-[#D1D5DB]" /></Link>
+                              </div>
+                            ) : field.key === 'pcName' ? (
+                              <p className="text-sm font-black text-[#111827] font-mono">{device.pcName || 'Unassigned'}</p>
+                            ) : field.key === 'biosDate' ? (
+                              <p className="text-xs font-bold text-[#111827]">{device.biosDate || 'Not set'}</p>
+                            ) : field.key === 'windowsKey' ? (
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <Key className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" />
+                                  <span className="text-xs font-bold text-[#111827] uppercase">{device.windowsKey ? 'Windows / Assigned' : 'No Key'}</span>
+                                </div>
+                                {device.windowsKey && (
+                                  <p className="text-[10px] text-[#9CA3AF] font-bold uppercase tracking-tighter mt-0.5 ml-[22px]">{device.windowsKey}</p>
+                                )}
+                              </div>
+                            ) : field.key === 'remoteId' ? (
+                              <div className="py-1 px-3 bg-[#F3F4F6] rounded-lg w-fit">
+                                <p className="text-xs font-black text-[#111827] font-mono">{device.remoteId || 'No remote ID'}</p>
+                              </div>
+                            ) : field.key === 'rustdeskId' ? (
+                              <div className="py-1 px-3 bg-[#F3F4F6] rounded-lg w-fit">
+                                <p className="text-xs font-black text-[#111827] font-mono">{device.rustdeskId || 'No RustDesk ID'}</p>
+                              </div>
+                            ) : field.key === 'activityWatchStatus' ? (
+                              <span className={cn(
+                                'px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter',
+                                device.activityWatchStatus === 'installed' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'
+                              )}>
+                                {device.activityWatchStatus || 'Missing'}
+                              </span>
+                            ) : field.key === 'esetStatus' ? (
+                              <span className={cn(
+                                'px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter',
+                                device.esetStatus === 'active' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'
+                              )}>
+                                {device.esetStatus || 'Inactive'}
+                              </span>
+                            ) : null
+                          }
+                        />
+                      ))}
                       <td className="px-6 py-4 text-right">
                         <Link to={`/employee/${device.assigneeId || device.id}`} className="text-[10px] font-black uppercase text-[#111827] hover:underline flex items-center justify-end gap-1">
                           <ExternalLink className="w-3 h-3" /> Details
@@ -637,6 +717,7 @@ export default function Assets() {
         )}
       </AnimatePresence>
 
+        </div>
       </div>
     </PageLayout>
   );
