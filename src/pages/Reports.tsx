@@ -884,26 +884,34 @@ export default function Reports() {
               )}
 
               <div className="p-6 pt-2 space-y-3">
-                <button
-                  onClick={() => handleDownload('xlsx')}
-                  className="w-full flex items-center justify-between p-4 rounded-xl border border-[#E5E7EB] hover:border-[#111827] hover:bg-[#F9FAFB] transition-all group"
-                >
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-[#111827]">Excel Workbook (.xlsx)</span>
-                    <span className="text-xs text-[#6B7280] mt-0.5">Includes multiple sheets and formatting</span>
+                {can('reports.export') ? (
+                  <>
+                    <button
+                      onClick={() => handleDownload('xlsx')}
+                      className="w-full flex items-center justify-between p-4 rounded-xl border border-[#E5E7EB] hover:border-[#111827] hover:bg-[#F9FAFB] transition-all group"
+                    >
+                      <div className="flex flex-col text-left">
+                        <span className="font-bold text-[#111827]">Excel Workbook (.xlsx)</span>
+                        <span className="text-xs text-[#6B7280] mt-0.5">Includes multiple sheets and formatting</span>
+                      </div>
+                      <FileText className="w-5 h-5 text-[#9CA3AF] group-hover:text-[#111827]" />
+                    </button>
+                    <button
+                      onClick={() => handleDownload('csv')}
+                      className="w-full flex items-center justify-between p-4 rounded-xl border border-[#E5E7EB] hover:border-[#111827] hover:bg-[#F9FAFB] transition-all group"
+                    >
+                      <div className="flex flex-col text-left">
+                        <span className="font-bold text-[#111827]">CSV Document (.csv)</span>
+                        <span className="text-xs text-[#6B7280] mt-0.5">Plain text format, primary sheet only</span>
+                      </div>
+                      <FileText className="w-5 h-5 text-[#9CA3AF] group-hover:text-[#111827]" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-center text-sm font-bold text-[#6B7280]">
+                    You don't have permission to export reports.
                   </div>
-                  <FileText className="w-5 h-5 text-[#9CA3AF] group-hover:text-[#111827]" />
-                </button>
-                <button
-                  onClick={() => handleDownload('csv')}
-                  className="w-full flex items-center justify-between p-4 rounded-xl border border-[#E5E7EB] hover:border-[#111827] hover:bg-[#F9FAFB] transition-all group"
-                >
-                  <div className="flex flex-col text-left">
-                    <span className="font-bold text-[#111827]">CSV Document (.csv)</span>
-                    <span className="text-xs text-[#6B7280] mt-0.5">Plain text format, primary sheet only</span>
-                  </div>
-                  <FileText className="w-5 h-5 text-[#9CA3AF] group-hover:text-[#111827]" />
-                </button>
+                )}
               </div>
 
               <div className="border-t border-[#F3F4F6] px-6 py-4 bg-[#F9FAFB] flex justify-end">
