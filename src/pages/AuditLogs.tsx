@@ -605,7 +605,7 @@ function AuditDetails({ details }: { details: any }) {
         <div key={index} className="flex flex-col gap-1">
           <span className="text-[0.625rem] font-black uppercase tracking-widest text-[#6B7280]">{item.field}</span>
           {'to' in item ? (
-            <div className="flex items-center gap-2 text-[#6B7280]">
+            <div className="flex items-center gap-2 text-xs text-[#6B7280]">
               <span className="line-through text-red-500">
                 {item.from || '-'}
               </span>
@@ -617,7 +617,7 @@ function AuditDetails({ details }: { details: any }) {
           ) : item.isExpandableArray ? (
             <ExpandableArrayValue items={item.value} />
           ) : (
-            <div className="text-[#4B5563] font-medium break-all">
+            <div className="text-xs text-[#4B5563] font-medium break-all">
               {item.value || '-'}
             </div>
           )}
