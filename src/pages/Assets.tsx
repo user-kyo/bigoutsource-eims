@@ -24,10 +24,6 @@ export const assetFields: Array<{ key: AssetFieldKey; label: string; width: stri
   { key: 'esetStatus', label: 'ESET Status', width: 'w-[12%]' },
 ];
 
-export const selectableAssetFields = assetFields.filter(f => f.key !== 'assigneeName');
-const maxVisibleFieldCount = 6;
-const defaultVisibleFieldKeys: AssetFieldKey[] = ['assigneeName', 'pcName', 'windowsKey', 'rustdeskId'];
-
 function formatWindowsLicenseKey(value = '') {
   return value
     .replace(/[^a-zA-Z0-9]/g, '')
@@ -65,28 +61,8 @@ export default function Assets() {
   const [drafts, setDrafts] = useState<Record<string, Partial<any>>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [selectedFields, setSelectedFields] = useState<AssetFieldKey[] | null>(null);
 
-  const visibleFieldKeys = selectedFields ?? defaultVisibleFieldKeys;
-  const isCustomFieldView = selectedFields !== null;
-  const visibleFields = assetFields.filter((field) => visibleFieldKeys.includes(field.key));
-
-  const toggleField = (field: AssetFieldKey) => {
-    setSelectedFields((current) => {
-      const nextFields = current ?? defaultVisibleFieldKeys;
-
-      if (nextFields.includes(field)) {
-        return nextFields.filter((item) => item !== field);
-      }
-
-      if (nextFields.length >= maxVisibleFieldCount) {
-        toast.error(`You can display up to ${maxVisibleFieldCount - 1} selected items at a time`);
-        return current;
-      }
-
-      return [...nextFields, field];
-    });
-  };
+  const visibleFields = assetFields;
 
   const hasChanges = useMemo(() => {
     return Object.entries(drafts).some(([id, draft]) => {
