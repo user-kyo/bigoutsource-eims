@@ -349,11 +349,11 @@ export default function AuditLogs() {
         </div>
 
         {/* Security Notice */}
-        <div className="bg-[#FEF2F2] border border-[#FEE2E2] p-4 rounded-2xl flex items-start gap-3 shadow-sm">
-          <AlertCircle className="w-5 h-5 text-[#EF4444] mt-0.5 shrink-0" />
+        <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-start gap-3 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-black text-[#991B1B]">Security Notice</p>
-            <p className="text-xs font-medium text-[#B91C1C] mt-0.5">Audit logs display privileged system activities including edits, additions, and access logs. These records are immutable.</p>
+            <p className="text-sm font-black text-red-800">Security Notice</p>
+            <p className="text-xs font-medium text-red-700 mt-0.5">Audit logs display privileged system activities including edits, additions, and access logs. These records are immutable.</p>
           </div>
         </div>
 

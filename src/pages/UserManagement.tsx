@@ -689,7 +689,7 @@ export default function UserManagement() {
                                       setDisableUser(user);
                                     }}
                                     disabled={busyId === user.uid || editingId !== null || disableUser !== null}
-                                    className="group relative inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
+                                    className="group relative inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center bg-white border border-[#E5E7EB] text-[#B91C1C] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
                                   >
                                     <UserX className="w-4 h-4" />
                                     <ActionTooltip label="Disable User" />
@@ -699,7 +699,7 @@ export default function UserManagement() {
                                   <button
                                     onClick={() => setEnableUser(user)}
                                     disabled={busyId === user.uid || editingId !== null || disableUser !== null || enableUser !== null}
-                                    className="group relative inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center bg-white border border-[#D1FAE5] text-[#059669] rounded-lg hover:bg-[#ECFDF5] disabled:opacity-50"
+                                    className="group relative inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center bg-white border border-[#E5E7EB] text-[#059669] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
                                   >
                                     <ShieldCheck className="w-4 h-4" />
                                     <ActionTooltip label="Enable User" />
@@ -714,7 +714,7 @@ export default function UserManagement() {
                                     }}
                                     disabled={busyId === user.uid || editingId !== null || disableUser !== null || enableUser !== null}
                                     aria-label="Delete user"
-                                    className="group relative inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center bg-white border border-[#FEE2E2] text-[#B91C1C] rounded-lg hover:bg-[#FEF2F2] disabled:opacity-50"
+                                    className="group relative inline-flex h-10 w-10 min-w-10 shrink-0 items-center justify-center bg-white border border-[#E5E7EB] text-[#B91C1C] rounded-lg hover:bg-[#F9FAFB] disabled:opacity-50"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                     <ActionTooltip label="Delete User" />
