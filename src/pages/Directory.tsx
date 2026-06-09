@@ -248,7 +248,6 @@ const wizardSteps = [
   { title: 'Employee Info' },
   { title: 'Accounts' },
   { title: 'Assignment' },
-  { title: 'IT Assets' },
   { title: 'Review' },
 ];
 
@@ -916,7 +915,7 @@ export default function Directory() {
     if ((requireAll || step === 2) && !form.siteId) {
       errors.siteId = 'Select the employee work site.';
     }
-    if ((requireAll || step === 3) && form.windowsKey && !isCompleteWindowsLicenseKey(form.windowsKey)) {
+    if (requireAll && form.windowsKey && !isCompleteWindowsLicenseKey(form.windowsKey)) {
       errors.windowsKey = 'Windows license key must be 25 characters in 5 groups of 5.';
     }
     return errors;
@@ -1006,7 +1005,7 @@ export default function Directory() {
     }
 
     if (!isReviewConfirmed) {
-      setActiveStep(4);
+      setActiveStep(3);
       toast.error('Confirm the reviewed onboarding details before submitting');
       return;
     }
@@ -1410,7 +1409,7 @@ export default function Directory() {
 
               <form onSubmit={handleAddEmployee} className="flex min-h-0 flex-1 flex-col">
                 <div className="border-b border-[#E5E7EB] bg-white px-6 py-4">
-                  <div className="mx-auto grid w-full max-w-[1000px] grid-cols-1 gap-3 md:grid-cols-5">
+                  <div className="mx-auto grid w-full max-w-[1000px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     {wizardSteps.map((step, index) => {
                       const isCurrent = index === activeStep;
                       const isComplete = index < activeStep;
@@ -1447,7 +1446,7 @@ export default function Directory() {
                   </div>
                 </div>
 
-                <div className={cn("min-h-0 flex-1 px-6 py-6", activeStep === 4 ? "overflow-y-auto" : "overflow-visible")}>
+                <div className={cn("min-h-0 flex-1 px-6 py-6", activeStep === 3 ? "overflow-y-auto" : "overflow-visible")}>
                   <div className="mx-auto min-h-[540px] w-full max-w-[1000px] transition-opacity duration-200">
                     {activeStep === 0 && (
                       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -1663,50 +1662,6 @@ export default function Directory() {
 
                     {activeStep === 3 && (
                       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                        <SectionCard title="Device Identity" eyebrow="Auto">
-                          <EditableGeneratedValue
-                            label="PC Name"
-                            value={form.pcName}
-                            onChange={(value) => updateForm('pcName', value)}
-                            onRegenerate={() => regenerateField('pcName')}
-                            isEdited={isPcNameEdited}
-                            placeholder="Pending generation"
-                            error={formErrors.pcName}
-                          />
-                        </SectionCard>
-
-                        <SectionCard title="IT Assets" eyebrow="Manual">
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <Field label="RustDesk ID" error={formErrors.rustdeskId}>
-                              <Input value={form.rustdeskId} onChange={(value) => updateForm('rustdeskId', value)} placeholder="123 456 789" error={Boolean(formErrors.rustdeskId)} />
-                            </Field>
-                            <Field label="ESET">
-                              <Select value={form.esetStatus} onChange={(value) => updateForm('esetStatus', value)}>
-                                <option value="inactive">Inactive</option>
-                                <option value="active">Active</option>
-                              </Select>
-                            </Field>
-                            <Field label="BIOS Date">
-                              <Input type="date" value={form.biosDate} onChange={(value) => updateForm('biosDate', value)} max={getTodayDateInputValue()} />
-                            </Field>
-                            <Field label="ActivityWatch">
-                              <Select value={form.activityWatchStatus} onChange={(value) => updateForm('activityWatchStatus', value)}>
-                                <option value="missing">Missing</option>
-                                <option value="installed">Installed</option>
-                              </Select>
-                            </Field>
-                            <div className="md:col-span-2">
-                              <Field label="Windows License Key" error={formErrors.windowsKey}>
-                                <Input value={form.windowsKey} onChange={(value) => updateForm('windowsKey', value)} placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" error={Boolean(formErrors.windowsKey)} />
-                              </Field>
-                            </div>
-                          </div>
-                        </SectionCard>
-                      </div>
-                    )}
-
-                    {activeStep === 4 && (
-                      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                         <SectionCard title="Employee Information" eyebrow="Review" status={!validationForStep(0).employeeNumber && !validationForStep(0).firstName && !validationForStep(0).lastName ? 'complete' : 'missing'}>
                           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <Field label="Employee ID" required error={formErrors.employeeNumber}>
@@ -1863,55 +1818,6 @@ export default function Directory() {
                                 Active
                               </div>
                             </Field>
-                          </div>
-                        </SectionCard>
-                        <SectionCard title="IT Assets" eyebrow="Review" status="complete">
-                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                            <Field label="PC Name" error={formErrors.pcName}>
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1">
-                                  <Input
-                                    value={form.pcName}
-                                    onChange={(value) => updateForm('pcName', value)}
-                                    placeholder="Pending generation"
-                                    error={Boolean(formErrors.pcName)}
-                                  />
-                                </div>
-                                {isPcNameEdited && (
-                                  <button
-                                    type="button"
-                                    onClick={() => regenerateField('pcName')}
-                                    className="p-2.5 rounded-xl border border-[#E5E7EB] bg-white text-[#6B7280] hover:text-[#2563EB] hover:border-[#93C5FD] hover:bg-[#EFF6FF] transition-all shadow-sm flex items-center justify-center shrink-0"
-                                    title="Reset to generated default"
-                                  >
-                                    <RotateCcw className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                            </Field>
-                            <Field label="RustDesk ID" error={formErrors.rustdeskId}>
-                              <Input value={form.rustdeskId} onChange={(value) => updateForm('rustdeskId', value)} placeholder="123 456 789" error={Boolean(formErrors.rustdeskId)} />
-                            </Field>
-                            <Field label="ESET">
-                              <Select value={form.esetStatus} onChange={(value) => updateForm('esetStatus', value)}>
-                                <option value="inactive">Inactive</option>
-                                <option value="active">Active</option>
-                              </Select>
-                            </Field>
-                            <Field label="BIOS Date">
-                              <Input type="date" value={form.biosDate} onChange={(value) => updateForm('biosDate', value)} max={getTodayDateInputValue()} />
-                            </Field>
-                            <Field label="ActivityWatch">
-                              <Select value={form.activityWatchStatus} onChange={(value) => updateForm('activityWatchStatus', value)}>
-                                <option value="missing">Missing</option>
-                                <option value="installed">Installed</option>
-                              </Select>
-                            </Field>
-                            <div className="md:col-span-2">
-                              <Field label="Windows License Key" error={formErrors.windowsKey}>
-                                <Input value={form.windowsKey} onChange={(value) => updateForm('windowsKey', value)} placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" error={Boolean(formErrors.windowsKey)} />
-                              </Field>
-                            </div>
                           </div>
                         </SectionCard>
                         <div className="md:col-span-2 rounded-2xl border border-[#D1D5DB] dark:border-[#3A4257] bg-white p-5 shadow-lg shadow-[#1118270D]">
