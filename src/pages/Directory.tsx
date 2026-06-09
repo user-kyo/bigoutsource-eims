@@ -164,8 +164,8 @@ const directoryFields: Array<{ key: DirectoryFieldKey; label: string; render: (e
           {incomplete && (
             <div
               className={cn(
-                'group relative flex items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 cursor-help ring-1 shadow-sm',
-                incomplete.type === 'critical' ? 'bg-red-50 text-red-700 ring-red-200/60' : 'bg-amber-50 text-amber-700 ring-amber-200/60'
+                'group relative flex items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 cursor-help border shadow-sm',
+                incomplete.type === 'critical' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
               )}
             >
               <ShieldAlert className="w-3 h-3" />
@@ -1102,7 +1102,7 @@ export default function Directory() {
                   className={cn(
                     'flex items-start gap-2 rounded-xl border border-[#E5E7EB] px-3 py-2 text-xs font-bold text-[#374151] transition-all',
                     checked ? 'bg-[#F9FAFB]' : 'bg-white',
-                    disabled && !required ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-[#D1D5DB]',
+                    disabled && !required ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-[#D1D5DB] dark:border-[#3A4257]',
                     required && 'cursor-not-allowed'
                   )}
                 >
@@ -1111,7 +1111,7 @@ export default function Directory() {
                     checked={checked}
                     disabled={disabled}
                     onChange={() => toggleField(field.key)}
-                    className="mt-0.5 h-4 w-4 rounded border-[#D1D5DB] accent-[#111827]"
+                    className="mt-0.5 h-4 w-4 rounded border-[#D1D5DB] dark:border-[#3A4257] accent-[#111827]"
                   />
                   <span className="leading-snug">{field.label}</span>
                 </label>
@@ -1203,10 +1203,10 @@ export default function Directory() {
                 type="button"
                 onClick={() => setShowIncompleteOnly(!showIncompleteOnly)}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black transition-all ring-1',
+                  'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black transition-all border',
                   showIncompleteOnly
-                    ? 'bg-amber-100 text-amber-900 ring-amber-300 shadow-sm'
-                    : 'bg-amber-50/50 text-amber-700 ring-amber-200/60 hover:bg-amber-50 hover:ring-amber-300'
+                    ? 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm'
+                    : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300'
                 )}
               >
                 <ShieldAlert className="w-4 h-4" />
@@ -1394,7 +1394,7 @@ export default function Directory() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 30 }}
               transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-              className="flex h-[800px] max-h-[94vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-2xl border border-[#D1D5DB] bg-[#F9FAFB] shadow-2xl shadow-[#11182733]"
+              className="flex h-[800px] max-h-[94vh] w-full max-w-[1080px] flex-col overflow-hidden rounded-2xl border border-[#D1D5DB] dark:border-[#3A4257] bg-[#F9FAFB] shadow-2xl shadow-[#11182733]"
             >
               <div className="flex items-start justify-between gap-4 border-b border-[#E5E7EB] bg-white px-6 py-5">
                 <div>
@@ -1529,7 +1529,7 @@ export default function Directory() {
                                   onClick={() => setIsAccountDropdownOpen((current) => !current)}
                                   className={cn(
                                     'flex w-full items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5 text-left text-sm font-bold text-[#4B5563] outline-none transition-all hover:border-[#CBD5E1] focus:ring-2 focus:ring-[#2563EB]',
-                                    formErrors.accountAssignment ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB]'
+                                    formErrors.accountAssignment ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB] dark:border-[#3A4257]'
                                   )}
                                 >
                                   <span className="truncate">{form.accountAssignment || 'Select account type'}</span>
@@ -1599,7 +1599,7 @@ export default function Directory() {
                                   onClick={() => setIsSiteDropdownOpen((current) => !current)}
                                   className={cn(
                                     'flex w-full items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5 text-left text-sm font-bold text-[#4B5563] outline-none transition-all hover:border-[#CBD5E1] focus:ring-2 focus:ring-[#2563EB]',
-                                    formErrors.siteId ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB]'
+                                    formErrors.siteId ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB] dark:border-[#3A4257]'
                                   )}
                                 >
                                   <span className="truncate">
@@ -1639,7 +1639,7 @@ export default function Directory() {
                               </div>
                             </Field>
                             <Field label="Status">
-                              <div className="flex min-h-[42px] items-center rounded-xl border border-[#D1D5DB] bg-[#F9FAFB] px-3 text-sm font-bold text-[#4B5563]">
+                              <div className="flex min-h-[42px] items-center rounded-xl border border-[#D1D5DB] dark:border-[#3A4257] bg-[#F9FAFB] px-3 text-sm font-bold text-[#4B5563]">
                                 Active
                               </div>
                             </Field>
@@ -1744,7 +1744,7 @@ export default function Directory() {
                                   onClick={() => setIsAccountDropdownOpen((current) => !current)}
                                   className={cn(
                                     'flex w-full items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5 text-left text-sm font-bold text-[#4B5563] outline-none transition-all hover:border-[#CBD5E1] focus:ring-2 focus:ring-[#2563EB]',
-                                    formErrors.accountAssignment ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB]'
+                                    formErrors.accountAssignment ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB] dark:border-[#3A4257]'
                                   )}
                                 >
                                   <span className="truncate">{form.accountAssignment || 'Select account type'}</span>
@@ -1824,7 +1824,7 @@ export default function Directory() {
                                   onClick={() => setIsSiteDropdownOpen((current) => !current)}
                                   className={cn(
                                     'flex w-full items-center justify-between gap-3 rounded-xl border bg-white px-3 py-2.5 text-left text-sm font-bold text-[#4B5563] outline-none transition-all hover:border-[#CBD5E1] focus:ring-2 focus:ring-[#2563EB]',
-                                    formErrors.siteId ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB]'
+                                    formErrors.siteId ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB] dark:border-[#3A4257]'
                                   )}
                                 >
                                   <span className="truncate">
@@ -1857,7 +1857,7 @@ export default function Directory() {
                               </div>
                             </Field>
                             <Field label="Status">
-                              <div className="flex min-h-[42px] items-center rounded-xl border border-[#D1D5DB] bg-[#F9FAFB] px-3 text-sm font-bold text-[#4B5563]">
+                              <div className="flex min-h-[42px] items-center rounded-xl border border-[#D1D5DB] dark:border-[#3A4257] bg-[#F9FAFB] px-3 text-sm font-bold text-[#4B5563]">
                                 Active
                               </div>
                             </Field>
@@ -1912,13 +1912,13 @@ export default function Directory() {
                             </div>
                           </div>
                         </SectionCard>
-                        <div className="md:col-span-2 rounded-2xl border border-[#D1D5DB] bg-white p-5 shadow-lg shadow-[#1118270D]">
+                        <div className="md:col-span-2 rounded-2xl border border-[#D1D5DB] dark:border-[#3A4257] bg-white p-5 shadow-lg shadow-[#1118270D]">
                           <label className="flex items-start gap-3">
                             <input
                               type="checkbox"
                               checked={isReviewConfirmed}
                               onChange={(event) => setIsReviewConfirmed(event.target.checked)}
-                              className="mt-1 h-4 w-4 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-2 focus:ring-[#2563EB]"
+                              className="mt-1 h-4 w-4 rounded border-[#D1D5DB] dark:border-[#3A4257] text-[#2563EB] focus:ring-2 focus:ring-[#2563EB]"
                             />
                             <span>
                               <span className="block text-sm font-black text-[#111827]">Confirm onboarding details</span>
@@ -1931,12 +1931,12 @@ export default function Directory() {
                   </div>
                 </div>
 
-                <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-[#E5E7EB] bg-white/95 px-6 py-4 backdrop-blur md:flex-row md:items-center md:justify-between">
+                <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t border-[#E5E7EB] bg-white/95 dark:bg-[#1A1D27]/95 px-6 py-4 backdrop-blur md:flex-row md:items-center md:justify-between">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <button
                       type="button"
                       onClick={saveDraft}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D1D5DB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D1D5DB] dark:border-[#3A4257] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                     >
                       <Save className="h-4 w-4" />
                       Save Draft
@@ -1963,7 +1963,7 @@ export default function Directory() {
                       type="button"
                       onClick={activeStep === 0 ? closeModal : goToPreviousStep}
                       disabled={isSaving}
-                      className="rounded-xl border border-[#D1D5DB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB] disabled:opacity-60"
+                      className="rounded-xl border border-[#D1D5DB] dark:border-[#3A4257] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB] disabled:opacity-60"
                     >
                       {activeStep === 0 ? 'Cancel' : 'Back'}
                     </button>
@@ -2022,7 +2022,7 @@ export default function Directory() {
                   <button
                     type="button"
                     onClick={() => setShowMissingDepartmentModal(false)}
-                    className="rounded-xl border border-[#D1D5DB] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    className="rounded-xl border border-[#D1D5DB] dark:border-[#3A4257] bg-white px-4 py-2.5 text-sm font-bold text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
                   >
                     Cancel
                   </button>
@@ -2070,8 +2070,8 @@ function SectionCard({
           {status && (
             <span
               className={cn(
-                'rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider',
-                status === 'complete' ? 'bg-green-50 text-green-700 ring-1 ring-green-100' : 'bg-red-50 text-red-700 ring-1 ring-red-100'
+                'rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider border',
+                status === 'complete' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'
               )}
             >
               {status === 'complete' ? 'Complete' : 'Missing'}
@@ -2081,7 +2081,7 @@ function SectionCard({
             <button
               type="button"
               onClick={onEdit}
-              className="rounded-lg border border-[#D1D5DB] bg-white px-3 py-1.5 text-xs font-black text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="rounded-lg border border-[#D1D5DB] dark:border-[#3A4257] bg-white px-3 py-1.5 text-xs font-black text-[#4B5563] transition-all hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
             >
               Edit
             </button>
@@ -2108,7 +2108,7 @@ function Field({
     <label className="flex flex-col gap-1.5">
       <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#6B7280]">
         {label}
-        {required && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[9px] text-red-600 ring-1 ring-red-100">Required</span>}
+        {required && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[9px] text-red-600 border border-red-100">Required</span>}
       </span>
       {children}
       {error && <span className="text-xs font-bold text-red-600">{error}</span>}
@@ -2327,7 +2327,7 @@ function Input({
       onChange={(event) => onChange(event.target.value)}
       className={cn(
         'w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-[#111827] outline-none transition-all placeholder:text-[#9CA3AF] focus:ring-2 focus:ring-[#2563EB]',
-        error ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB]'
+        error ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB] dark:border-[#3A4257]'
       )}
     />
   );
@@ -2399,7 +2399,7 @@ function EditableGeneratedValue({
           placeholder={placeholder || 'Pending generation'}
           className={cn(
             'w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm font-bold bg-white text-[#111827] outline-none transition-all focus:ring-2 focus:ring-[#2563EB]',
-            error ? 'border-red-300 focus:ring-red-500' : 'border-[#D1D5DB] focus:border-[#2563EB]'
+            error ? 'border-red-300 focus:ring-red-500' : 'border-[#D1D5DB] dark:border-[#3A4257] focus:border-[#2563EB]'
           )}
         />
       </div>
@@ -2457,7 +2457,7 @@ function Select({
       onChange={(event) => onChange(event.target.value)}
       className={cn(
         'w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-bold text-[#4B5563] outline-none focus:ring-2 focus:ring-[#2563EB]',
-        error ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB]'
+        error ? 'border-red-300 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20' : 'border-[#D1D5DB] dark:border-[#3A4257]'
       )}
     >
       {children}

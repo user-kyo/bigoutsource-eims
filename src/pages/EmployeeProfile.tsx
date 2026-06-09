@@ -862,15 +862,15 @@ export default function EmployeeProfile() {
                           </h2>
 
                           {employee.isArchived && (
-                            <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-black uppercase tracking-wider ring-1 ring-red-200/60 shadow-sm">
+                            <span className="px-3 py-1 rounded-full bg-red-50 text-red-600 text-xs font-black uppercase tracking-wider border border-red-200 shadow-sm">
                               Archived
                             </span>
                           )}
 
                           {missingDataStatus && (
                             <div className={cn(
-                              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ring-1 shadow-sm',
-                              missingDataStatus.type === 'critical' ? 'bg-red-50 text-red-700 ring-red-200/60' : 'bg-amber-50 text-amber-700 ring-amber-200/60'
+                              'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-sm',
+                              missingDataStatus.type === 'critical' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
                             )}>
                               <ShieldAlert className="w-3.5 h-3.5" />
                               {missingDataStatus.text}

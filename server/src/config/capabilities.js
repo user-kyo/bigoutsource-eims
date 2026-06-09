@@ -13,7 +13,7 @@ export const CAPABILITIES = {
   'employees.view': 'View employee directory (identity/HR fields)',
   'employees.create': 'Create employees',
   'employees.edit': 'Edit employee identity/HR fields',
-  'employees.delete': 'Delete employees',
+  'employees.delete': 'Archive Employees',
   'employees.it.view': 'View employee IT fields',
   'employees.it.edit': 'Edit employee IT fields',
   'employees.secrets.view': 'View employee secrets (passwords, keys, remote IDs)',
