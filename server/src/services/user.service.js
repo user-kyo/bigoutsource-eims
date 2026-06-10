@@ -62,6 +62,10 @@ export const UserService = {
         throw new AppError('Unknown role', 400);
       }
       updates.role = data.role;
+
+      if (user.role !== data.role) {
+        updates.capabilityOverrides = null;
+      }
     }
 
     if (data.status !== undefined) {
