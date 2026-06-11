@@ -50,7 +50,7 @@ export function Header({ title }: { title: string }) {
           <div className="flex items-center gap-3 pl-4 border-l" style={{ borderColor: 'var(--color-border)' }}>
             <div className="text-right">
               <p className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>{name}</p>
-              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{user?.role?.replace('_', ' ') || 'User'}</p>
+              <p className="text-xs capitalize" style={{ color: 'var(--color-text-muted)' }}>{user?.role?.replace('_', ' ') || 'User'}</p>
             </div>
             <div className="w-8 h-8 rounded-full bg-[#111827] flex items-center justify-center text-white text-xs font-bold">
               {initials}
