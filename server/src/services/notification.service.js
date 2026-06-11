@@ -44,6 +44,10 @@ export const NotificationService = {
     return NotificationModel.markAllReadForRecipient(user.id);
   },
 
+  clearAllForUser(user) {
+    return NotificationModel.clearAllForRecipient(user.id);
+  },
+
   async notifyEmployeeAdded({ employee, actor }) {
     const recipients = await UserProfileModel.findAll({ status: 'active' });
     const eligibleRecipients = [];

@@ -38,8 +38,8 @@ where read_at is null;
 
 alter table public.notifications enable row level security;
 
-grant select, update on public.notifications to authenticated;
-grant select, insert, update on public.notifications to service_role;
+grant select, update, delete on public.notifications to authenticated;
+grant select, insert, update, delete on public.notifications to service_role;
 
 drop policy if exists "Users can read their notifications" on public.notifications;
 create policy "Users can read their notifications"
@@ -56,14 +56,21 @@ to authenticated
 using ((select auth.uid()) = recipient_id)
 with check ((select auth.uid()) = recipient_id);
 
+drop policy if exists "Users can delete their notifications" on public.notifications;
+create policy "Users can delete their notifications"
+on public.notifications
+for delete
+to authenticated
+using ((select auth.uid()) = recipient_id);
+
 do $$
 begin
   if to_regclass('public.roles') is not null then
     update public.roles
     set
       capabilities = case
-        when coalesce(capabilities, '{}'::text[]) @> array['notifications.employee_added']::text[] then capabilities
-        else coalesce(capabilities, '{}'::text[]) || array['notifications.employee_added']::text[]
+        when coalesce(capabilities, '[]'::jsonb) ? 'notifications.employee_added' then capabilities
+        else coalesce(capabilities, '[]'::jsonb) || '["notifications.employee_added"]'::jsonb
       end,
       updated_at = now()
     where slug in ('super_admin', 'admin', 'hr_admin', 'it_admin', 'viewer');

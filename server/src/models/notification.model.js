@@ -71,4 +71,14 @@ export const NotificationModel = {
     });
     return rows.map(normalize);
   },
+
+  async clearAllForRecipient(recipientId) {
+    const rows = await supabaseRequest('notifications', {
+      method: 'DELETE',
+      searchParams: {
+        recipient_id: `eq.${recipientId}`,
+      },
+    });
+    return rows.map(normalize);
+  },
 };

@@ -18,4 +18,12 @@ export const NotificationController = {
       return next(error);
     }
   },
+
+  async clearAll(req, res, next) {
+    try {
+      return success(res, await NotificationService.clearAllForUser(req.user), 'Notifications cleared');
+    } catch (error) {
+      return next(error);
+    }
+  },
 };

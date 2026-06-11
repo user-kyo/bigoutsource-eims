@@ -28,6 +28,21 @@ function saveSeenPendingRegistrationIds(ids: Set<string>) {
   localStorage.setItem(SEEN_PENDING_REGISTRATIONS_KEY, JSON.stringify(Array.from(ids)));
 }
 
+function formatNotificationTimestamp(value?: string) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function Header({ title }: { title: string }) {
   const { user } = useAuth();
   const name = user?.fullName || user?.email || 'User';
@@ -69,6 +84,7 @@ function NotificationBell() {
   const { can } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [notifyRegistrationAttempts, setNotifyRegistrationAttempts] = useState(true);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [employeeNotifications, setEmployeeNotifications] = useState<any[]>([]);
@@ -125,6 +141,23 @@ function NotificationBell() {
       notificationService.markAllRead().catch(() => {});
     } else {
       setActiveEmployeeNotificationIds(new Set());
+    }
+  };
+
+  const clearEmployeeNotifications = async () => {
+    if (!employeeNotifications.length || isClearing) return;
+
+    setIsClearing(true);
+    const previousNotifications = employeeNotifications;
+    setEmployeeNotifications([]);
+    setActiveEmployeeNotificationIds(new Set());
+
+    try {
+      await notificationService.clearAll();
+    } catch (error) {
+      setEmployeeNotifications(previousNotifications);
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -223,15 +256,28 @@ function NotificationBell() {
               <div>
                 <h2 className="text-base font-black" style={{ color: 'var(--color-text-primary)' }}>Notifications</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="rounded-xl p-2 transition-colors"
-                style={{ color: 'var(--color-text-faint)' }}
-                aria-label="Close notifications"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                {employeeNotifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearEmployeeNotifications}
+                    disabled={isClearing}
+                    className="rounded-lg border px-3 py-1.5 text-[0.6875rem] font-black uppercase transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+                  >
+                    {isClearing ? 'Clearing' : 'Clear all'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-xl p-2 transition-colors"
+                  style={{ color: 'var(--color-text-faint)' }}
+                  aria-label="Close notifications"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <div className="max-h-[28rem] overflow-y-auto p-4">
@@ -239,11 +285,12 @@ function NotificationBell() {
                 <div className="flex h-32 items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-[#9CA3AF]" />
                 </div>
-              ) : !canManageUsers && !canReceiveEmployeeAddedNotifications ? (
-                <NotificationEmptyState message="No notification permissions are enabled for this account." />
               ) : accountRequestNotifications.length > 0 || employeeNotifications.length > 0 ? (
                 <div className="space-y-3">
-                  {employeeNotifications.map((notification) => (
+                  {employeeNotifications.map((notification) => {
+                    const timestamp = formatNotificationTimestamp(notification.createdAt);
+
+                    return (
                     <div
                       key={notification.id}
                       className="rounded-xl border p-4 text-left transition-colors"
@@ -274,6 +321,9 @@ function NotificationBell() {
                             )}
                           </div>
                           <p className="mt-0.5 text-[0.6875rem] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>{notification.actorRole || 'User'}</p>
+                          {timestamp && (
+                            <p className="mt-1 text-[0.6875rem] font-bold" style={{ color: 'var(--color-text-muted)' }}>{timestamp}</p>
+                          )}
                           <p className="mt-2 text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>
                             Added <span style={{ color: 'var(--color-text-primary)' }}>{notification.entityLabel || 'an employee'}</span> to employee records.
                           </p>
@@ -289,7 +339,8 @@ function NotificationBell() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   {accountRequestNotifications.map((account) => (
                     <Link
                       key={account.uid}

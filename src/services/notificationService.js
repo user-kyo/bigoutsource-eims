@@ -8,4 +8,5 @@ export const notificationService = {
     return apiRequest(`/notifications${suffix}`);
   },
   markAllRead: () => apiRequest('/notifications/read-all', { method: 'POST' }),
+  clearAll: () => apiRequest('/notifications', { method: 'DELETE' }),
 };
