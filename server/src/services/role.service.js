@@ -65,8 +65,9 @@ async function isInUse(slug) {
 }
 
 export const RoleService = {
-  list() {
-    return RoleModel.findAll();
+  async list() {
+    const roles = await RoleModel.findAll();
+    return roles.map((role) => (role.slug === 'super_admin' ? { ...role, capabilities: [...ALL_CAPABILITIES] } : role));
   },
 
   /** The grantable capability catalog (key + label), for the role editor checklist. */
@@ -75,6 +76,8 @@ export const RoleService = {
   },
 
   async resolveCapabilities(slug) {
+    if (slug === 'super_admin') return [...ALL_CAPABILITIES];
+
     const roles = await loadRoles();
     const role = roles.get(slug);
     if (role) return role.capabilities;
@@ -83,6 +86,7 @@ export const RoleService = {
 
   /** Effective capabilities for an account: per-account override if set, else the role's. */
   async resolveUserCapabilities(profile) {
+    if (profile?.role === 'super_admin') return [...ALL_CAPABILITIES];
     if (profile && Array.isArray(profile.capabilityOverrides)) return profile.capabilityOverrides;
     return this.resolveCapabilities(profile?.role);
   },
