@@ -123,6 +123,13 @@ function validateRecord(record, duplicateKeys, existingIds = new Set()) {
     issues.push({ code: 'existing_id', message: `Employee ID ${record.employeeNumber} already exists in Employee Records` });
   }
 
+  if (record.biosDate) {
+    const date = new Date(record.biosDate);
+    if (Number.isNaN(date.getTime())) {
+      issues.push({ code: 'invalid_bios_date', message: `Invalid BIOS date format: "${record.biosDate}"` });
+    }
+  }
+
   return issues;
 }
 

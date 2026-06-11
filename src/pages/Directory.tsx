@@ -811,7 +811,7 @@ export default function Directory() {
       const worksheet = workbook.Sheets['Employee Records'];
 
       if (!worksheet) {
-        throw new Error('The workbook does not contain an IT Master Tracker sheet.');
+        throw new Error('The workbook does not contain an Employee Records sheet.');
       }
 
       const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:V1');
