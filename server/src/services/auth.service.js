@@ -3,6 +3,7 @@ import { env } from '../config/env.js';
 import { AppError } from '../utils/apiResponse.js';
 import { UserProfileModel } from '../models/userProfile.model.js';
 import { RoleService } from './role.service.js';
+import { publicUserPayload } from '../utils/publicUser.js';
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -13,22 +14,7 @@ export async function publicUser(profile) {
     ? profile.capabilities
     : await RoleService.resolveUserCapabilities(profile);
 
-  return {
-    id: profile.id,
-    uid: profile.id,
-    email: profile.email,
-    fullName: profile.fullName,
-    role: profile.role,
-    roles: [profile.role],
-    capabilities,
-    capabilityOverrides: Array.isArray(profile.capabilityOverrides) ? profile.capabilityOverrides : null,
-    status: profile.status,
-    department: profile.department,
-    site: profile.site,
-    siteId: profile.site,
-    approvedBy: profile.approvedBy,
-    approvedAt: profile.approvedAt,
-  };
+  return publicUserPayload(profile, capabilities);
 }
 
 function authErrorMessage(error) {

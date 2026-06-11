@@ -1,14 +1,17 @@
 import app from './app.js';
 import { env } from './config/env.js';
 import { AuthService } from './services/auth.service.js';
+import { initRealtime } from './realtime/socketServer.js';
 
 let server;
+let realtime;
 
 try {
   await AuthService.bootstrapSuperAdmin();
   server = app.listen(env.port, () => {
     console.log(`API listening on port ${env.port}`);
   });
+  realtime = initRealtime(server);
   server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
       console.error(`Port ${env.port} is already in use. Set PORT to another value or stop the process using that port.`);
@@ -29,6 +32,7 @@ async function shutdown(signal) {
     process.exit(0);
     return;
   }
+  realtime?.close();
   server.close(() => {
     process.exit(0);
   });

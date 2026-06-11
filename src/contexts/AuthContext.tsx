@@ -3,6 +3,7 @@ import { AppUser } from '../types';
 import toast from 'react-hot-toast';
 import { authService } from '../services/authService';
 import { clearAuthToken, getAuthToken } from '../services/api';
+import { connectAccessSocket } from '../services/realtimeService';
 import { userCan, type Capability } from '../lib/permissions';
 
 interface AuthContextType {
@@ -88,6 +89,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener('visibilitychange', syncCurrentUser);
     };
   }, [refreshUser]);
+
+  useEffect(() => {
+    if (!user?.uid) return undefined;
+
+    return connectAccessSocket({
+      onAccessUpdated: ({ user: apiUser }: { user?: any }) => {
+        if (!apiUser) return;
+
+        const nextUser = toAppUser(apiUser);
+        if (nextUser.status !== 'active') {
+          clearAuthToken();
+          setUser(null);
+          toast.error('Your account access changed. Please contact the Super Admin.');
+          return;
+        }
+
+        setUser(nextUser);
+        toast.success('Your account access was updated.');
+      },
+      onAccessRevoked: () => {
+        clearAuthToken();
+        setUser(null);
+        toast.error('Your account access was revoked.');
+      },
+    });
+  }, [user?.uid]);
 
   const login = async (email: string, pass: string) => {
     try {

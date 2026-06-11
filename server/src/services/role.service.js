@@ -1,4 +1,5 @@
 import { RoleModel } from '../models/role.model.js';
+import { UserProfileModel } from '../models/userProfile.model.js';
 import {
   capabilitiesForRole as fallbackCapabilities,
   ALL_CAPABILITIES,
@@ -7,6 +8,8 @@ import {
 } from '../config/capabilities.js';
 import { supabaseRequest } from '../config/supabase.js';
 import { AppError } from '../utils/apiResponse.js';
+import { emitUserAccessUpdated } from '../realtime/accessEvents.js';
+import { publicUserPayload } from '../utils/publicUser.js';
 
 /**
  * Roles live in the database. This service resolves a role slug to its
@@ -20,6 +23,10 @@ let cache = { at: 0, bySlug: new Map() };
 
 // Meta-capabilities are Super-Admin-only and never grantable to other roles.
 const GRANTABLE_CAPABILITIES = ALL_CAPABILITIES.filter((cap) => !META_CAPABILITIES.includes(cap));
+
+function inheritsRoleCapabilities(profile, slug) {
+  return profile.role === slug && !Array.isArray(profile.capabilityOverrides);
+}
 
 async function loadRoles() {
   const now = Date.now();
@@ -129,6 +136,7 @@ export const RoleService = {
 
     const updated = await RoleModel.update(slug, updates);
     this.invalidate();
+    await this.emitRoleAccessChanged(slug, 'role.permissions_updated');
     return updated;
   },
 
@@ -148,5 +156,15 @@ export const RoleService = {
   /** Call after creating/editing/deleting a role so changes take effect immediately. */
   invalidate() {
     cache = { at: 0, bySlug: new Map() };
+  },
+
+  async emitRoleAccessChanged(slug, reason) {
+    const profiles = await UserProfileModel.findAll({ status: 'active' });
+    const affectedProfiles = profiles.filter((profile) => inheritsRoleCapabilities(profile, slug));
+
+    for (const profile of affectedProfiles) {
+      const capabilities = await this.resolveUserCapabilities(profile);
+      emitUserAccessUpdated(profile.id, publicUserPayload(profile, capabilities), reason);
+    }
   },
 };

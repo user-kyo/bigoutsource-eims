@@ -24,14 +24,6 @@ export default function ProtectedRoute({ roles, capability }: ProtectedRouteProp
     return <Navigate to="/login" replace />;
   }
 
-  if (roles && !roles.includes(user.role)) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (capability && !can(capability)) {
-    return <Navigate to="/" replace />;
-  }
-
   if (user.status === 'pending' || user.status === 'disabled') {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#F9FAFB] p-4 text-center">
@@ -45,6 +37,14 @@ export default function ProtectedRoute({ roles, capability }: ProtectedRouteProp
         </p>
       </div>
     );
+  }
+
+  if (roles && !roles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (capability && !can(capability)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
