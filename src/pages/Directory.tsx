@@ -328,9 +328,8 @@ function normalizePhoneInput(value = '') {
 
 function formatRustdeskId(value = '') {
   return value
-    .replace(/[^\d\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trimStart()
+    .replace(/\D/g, '')
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
     .slice(0, 17);
 }
 

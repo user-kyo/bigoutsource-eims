@@ -226,9 +226,8 @@ function normalizePhoneInput(value = '') {
 
 function formatRustdeskId(value = '') {
   return value
-    .replace(/[^\d\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trimStart()
+    .replace(/\D/g, '')
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
     .slice(0, 17);
 }
 
@@ -1484,27 +1483,30 @@ export default function EmployeeProfile() {
                                   <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-indigo-100 text-indigo-600 shadow">
                                     <Clock className="w-4 h-4" />
                                   </div>
-                                  {can('auditlogs.undo') && log.action.endsWith('.update') && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleUndo(log);
-                                      }}
-                                      className="p-1.5 text-[#9CA3AF] hover:text-[#2563EB] hover:bg-[#EFF6FF] rounded-full transition-colors bg-white shadow-sm border border-[#E5E7EB] group/undo"
-                                      title="Undo Action"
-                                    >
-                                      <Undo2 className="w-3.5 h-3.5 transition-transform group-hover/undo:-rotate-45" />
-                                    </button>
-                                  )}
                                 </div>
 
                                 {/* Card */}
                                 <div className="w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">
                                   <div className="flex flex-col gap-1 mb-3">
-                                    <div className="flex items-center justify-between">
-                                      <p className="text-sm font-black text-[#111827]">{actionLabel(log.action)}</p>
-                                      <p className="text-[0.625rem] font-black text-[#9CA3AF] uppercase tracking-wider">{formatDate(log.createdAt)}</p>
+                                    <div className="flex items-center justify-between gap-4">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-sm font-black text-[#111827]">{actionLabel(log.action)}</p>
+                                        {can('auditlogs.undo') && log.action.endsWith('.update') && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleUndo(log);
+                                            }}
+                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 hover:text-indigo-700 rounded-lg transition-all uppercase tracking-widest shadow-sm group/undo"
+                                            title="Undo Action"
+                                          >
+                                            <Undo2 className="w-3 h-3 transition-transform group-hover/undo:-rotate-45" />
+                                            Undo
+                                          </button>
+                                        )}
+                                      </div>
+                                      <p className="text-[0.625rem] font-black text-[#9CA3AF] uppercase tracking-wider shrink-0">{formatDate(log.createdAt)}</p>
                                     </div>
                                     <p className="text-xs font-bold text-[#6B7280]">by {actorLabel(log)}</p>
                                   </div>
