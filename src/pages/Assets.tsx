@@ -9,7 +9,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { deviceService } from '@/src/services/deviceService';
 import { accountService } from '@/src/services/accountService';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { AccountFilterDropdown, AccountOption, normalizeAccountList } from './Directory';
+import { AccountOption, normalizeAccountList } from './Directory';
+import { AccountFilterDropdown } from '@/src/components/employees/DirectoryUI';
 import { cn } from '@/src/lib/utils';
 
 export type AssetFieldKey = 'assigneeName' | 'pcName' | 'biosDate' | 'windowsKey' | 'rustdeskId' | 'activityWatchStatus' | 'esetStatus';
