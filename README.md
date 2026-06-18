@@ -6,17 +6,30 @@ React + Vite frontend with a Node.js and Express API backed by Supabase.
 
 ```text
 eims/
-├── src/                 # React + Vite frontend
-├── server/              # Express API for Supabase
-├── package.json         # Frontend scripts
+├── frontend/            # React + Vite frontend
+├── backend/             # Express API for Supabase
 └── README.md
 ```
 
-The frontend remains at the repository root. Backend code lives in `server/`.
+Frontend code lives in `frontend/`. Backend code lives in `backend/`.
+
+## Running with Docker
+
+You can run the entire application stack using Docker Compose. Ensure you have Docker and Docker Compose installed.
+
+1. Ensure you have created `.env` files in both the `frontend` and `backend` directories (you can copy their respective `.env.example` files).
+2. Run the following command from the root directory:
+
+```bash
+docker-compose up --build
+```
+
+This will build and start both the frontend (served via Nginx on `http://localhost:3000`) and the backend (Node.js API on `http://localhost:5001`).
 
 ## Frontend Setup
 
 ```bash
+cd frontend
 npm install
 copy .env.example .env
 npm run dev
@@ -35,12 +48,12 @@ Default frontend URL: `http://localhost:3000`
 ## Backend Setup
 
 ```bash
-cd server
+cd backend
 npm install
 copy .env.example .env
 ```
 
-Set the Supabase server credentials in `server/.env`:
+Set the Supabase server credentials in `backend/.env`:
 
 ```env
 SUPABASE_URL=https://your-project-ref.supabase.co
@@ -57,7 +70,7 @@ In local development, the API uses `kamote@gmail.com` / `kamote123` as the seede
 
 Keep the service-role key out of root `.env` and out of any `VITE_` variable.
 
-Run `server/sql/auth_setup.sql` in the Supabase SQL Editor before starting the API. It creates/updates `public.user_profiles` for pending account approvals.
+Run `backend/sql/auth_setup.sql` in the Supabase SQL Editor before starting the API. It creates/updates `public.user_profiles` for pending account approvals.
 
 Start the API:
 
