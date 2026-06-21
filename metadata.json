@@ -1,6 +1,8 @@
 {
-  "name": "Nexus EIMS",
-  "description": "A centralized Employee Information Management System for tracking personnel, departments, and payroll.",
+  "name": "Big Outsource EIMS",
+  "description": "A centralized Employee Information Management System designed for tracking personnel, managing departments, and securing HR and IT records efficiently.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
