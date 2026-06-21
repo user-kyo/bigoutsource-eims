@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import type React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, Check, CheckCircle2, ChevronRight, Loader2, Pencil, Search, ShieldCheck, SlidersHorizontal, Trash2, UserPlus, UserX, UsersRound, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageLayout } from '@/src/components/layout/PageLayout';
@@ -92,6 +93,7 @@ function getInitials(name: string, email: string) {
 }
 
 export default function UserManagement() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
