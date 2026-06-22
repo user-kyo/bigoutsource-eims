@@ -12,6 +12,8 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import { AccountOption, normalizeAccountList } from '@/src/pages/Directory';
 import { AccountFilterDropdown } from '@/src/features/employees/components/DirectoryUI';
 import { cn } from '@/src/lib/utils';
+import { useRealtimeSubscription } from '@/src/hooks/useRealtimeSubscription';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
 // sample comment
 export type AssetFieldKey = 'assigneeName' | 'pcName' | 'biosDate' | 'windowsKey' | 'rustdeskId' | 'activityWatchStatus' | 'esetStatus';
@@ -51,6 +53,7 @@ function asArray(value: any) {
 export default function Assets() {
   const { can } = useAuth();
   const [devices, setDevices] = useState<any[]>([]);
+  const [allDevices, setAllDevices] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,8 +61,14 @@ export default function Assets() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [accountFilter, setAccountFilter] = useState('All Account');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const recordsPerPage = 10;
 
+  useRealtimeSubscription({
+    table: 'employees',
+    onChange: () => setRefreshTrigger(prev => prev + 1)
+  });
+  
   const [isEditMode, setIsEditMode] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Partial<any>>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -185,7 +194,9 @@ export default function Assets() {
         if (!isMounted) return;
 
         if (devicesResult.status === 'fulfilled') {
-          const activeDevices = asArray(devicesResult.value).filter(
+          const fetchedDevices = asArray(devicesResult.value);
+          setAllDevices(fetchedDevices.filter((d: any) => !d.isArchived));
+          const activeDevices = fetchedDevices.filter(
             (device: any) => device.assigneeStatus === 'active' && !device.isArchived
           );
           setDevices(activeDevices);
@@ -203,7 +214,7 @@ export default function Assets() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshTrigger]);
 
   const filteredDevices = useMemo(() => {
     let result = devices;
@@ -409,6 +420,88 @@ export default function Assets() {
                         );
                       })}
                       <th className="px-6 py-4 text-[0.625rem] font-black text-[#9CA3AF] uppercase tracking-widest w-[8%]"></th>
+                  <p className="text-2xl font-black text-[#111827]">{stat.value}</p>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Asset Allocation Chart */}
+        {!isLoading && allDevices.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-sm w-full lg:w-1/2">
+            <h3 className="text-lg font-bold text-[#111827] mb-6 flex items-center gap-2">
+              <Laptop className="w-5 h-5 text-[#9CA3AF]" />
+              Asset Allocation
+            </h3>
+            <div className="h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Assigned', value: allDevices.filter(d => d.assigneeStatus === 'active').length },
+                      { name: 'Unassigned', value: allDevices.filter(d => d.assigneeStatus !== 'active').length }
+                    ].filter(d => d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    animationDuration={1000}
+                    animationEasing="ease-out"
+                  >
+                    {[
+                      { name: 'Assigned', value: allDevices.filter(d => d.assigneeStatus === 'active').length },
+                      { name: 'Unassigned', value: allDevices.filter(d => d.assigneeStatus !== 'active').length }
+                    ].filter(d => d.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.name === 'Assigned' ? '#3B82F6' : '#9CA3AF'} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    itemStyle={{ fontWeight: 'bold' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '0.75rem', fontWeight: 'bold' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        )}
+
+        <AnimatePresence mode="wait" initial={false}>
+          {isLoading ? (
+            <motion.div key="skeleton-table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: 'easeOut' }} className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm overflow-x-auto relative">
+              <table className="w-full text-left border-collapse table-fixed min-w-[900px]">
+                <thead>
+                  <tr className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
+                    {visibleFields.map((header) => {
+                      const isActiveSort = sortConfig?.key === header.key;
+                      const SortIcon = isActiveSort ? (sortConfig?.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+                      return (
+                        <th key={header.key} className={`px-6 py-4 text-[0.625rem] font-black text-[#9CA3AF] uppercase tracking-widest text-left ${header.width}`}>
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(header.key)}
+                            className={`flex items-center gap-1.5 hover:text-[#111827] transition-colors ${isActiveSort ? 'text-[#111827]' : ''}`}
+                          >
+                            <span className="truncate">{header.label}</span>
+                            <SortIcon className="w-3.5 h-3.5 shrink-0" />
+                          </button>
+                        </th>
+                      );
+                    })}
+                    <th className="px-6 py-4 text-[0.625rem] font-black text-[#9CA3AF] uppercase tracking-widest w-[8%]"></th>
+                  </tr>
+                </thead>
+                <tbody className="">
+                  {[...Array(recordsPerPage)].map((_, i) => (
+                    <tr key={i} className="animate-pulse border-b border-[#F3F4F6] last:border-0">
+                      {visibleFields.map((f) => (
+                        <td key={f.key} className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                      ))}
+                      <td className="px-6 py-4 text-right"><div className="h-4 bg-gray-200 rounded w-16 ml-auto"></div></td>
                     </tr>
                   </thead>
                   <tbody className="">
