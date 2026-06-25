@@ -16,7 +16,7 @@ const IT_READ_FIELDS = ['pcName', 'biosDate', 'esetStatus', 'eset', 'activityWat
 // Write-shape keys (as accepted from the client) grouped by tier.
 const HR_WRITE_FIELDS = [
   'id', 'employeeId', 'employeeNumber',
-  'name', 'fullName', 'firstName', 'middleName', 'lastName',
+  'name', 'fullName', 'firstName', 'middleName', 'lastName', 'suffix',
   'account', 'accountAssignment', 'internalDepartmentId', 'externalDepartmentId',
   'phone', 'phoneNumber', 'address',
   'boEmail', 'bigoutsourceEmail', 'lmsAccount',
