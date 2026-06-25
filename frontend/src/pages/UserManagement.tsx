@@ -177,7 +177,7 @@ export default function UserManagement() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [view]);
 
   const summary = useMemo(
     () => ({
