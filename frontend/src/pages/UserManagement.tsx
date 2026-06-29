@@ -47,7 +47,10 @@ function asArray(value: any) {
   return Array.isArray(value) ? value : [];
 }
 
-function roleLabel(role: string) {
+function roleLabel(role: string, rolesBySlug?: Map<string, Role>) {
+  if (rolesBySlug && rolesBySlug.has(role)) {
+    return rolesBySlug.get(role)!.name;
+  }
   return role.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -404,7 +407,7 @@ export default function UserManagement() {
         capabilities: permsDraft 
       });
       
-      toast.success(`${roleLabel(permsTarget.role)} role updated`);
+      toast.success(`${roleLabel(permsTarget.role, rolesBySlug)} role updated`);
       
       setRoles(current => current.map(r => 
         r.slug === permsTarget.role ? { ...r, capabilities: permsDraft } : r
@@ -621,7 +624,7 @@ export default function UserManagement() {
                             ) : (
                               <motion.div key="view-role" initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} transition={{ duration: 0.15 }} className="flex items-center gap-2">
                                 <ShieldCheck className="w-4 h-4 text-[#D1D5DB]" />
-                                <span className="text-xs font-black text-[#4B5563] uppercase tracking-tight">{roleLabel(user.role)}</span>
+                                <span className="text-xs font-black text-[#4B5563] uppercase tracking-tight">{roleLabel(user.role, rolesBySlug)}</span>
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -911,7 +914,7 @@ export default function UserManagement() {
                   <div className="grid grid-cols-2 gap-y-2 text-xs">
                     <div>
                       <span className="text-[#9CA3AF] font-bold block mb-0.5 uppercase tracking-wider text-[0.625rem]">Role</span>
-                      <span className="font-bold text-[#4B5563]">{roleLabel(deleteUser.role)}</span>
+                      <span className="font-bold text-[#4B5563]">{roleLabel(deleteUser.role, rolesBySlug)}</span>
                     </div>
                     <div>
                       <span className="text-[#9CA3AF] font-bold block mb-0.5 uppercase tracking-wider text-[0.625rem]">Department</span>
@@ -1022,7 +1025,7 @@ export default function UserManagement() {
                   <div className="grid grid-cols-2 gap-y-2 text-xs">
                     <div>
                       <span className="text-[#9CA3AF] font-bold block mb-0.5 uppercase tracking-wider text-[0.625rem]">Role</span>
-                      <span className="font-bold text-[#4B5563]">{roleLabel(disableUser.role)}</span>
+                      <span className="font-bold text-[#4B5563]">{roleLabel(disableUser.role, rolesBySlug)}</span>
                     </div>
                     <div>
                       <span className="text-[#9CA3AF] font-bold block mb-0.5 uppercase tracking-wider text-[0.625rem]">Department</span>
@@ -1111,7 +1114,7 @@ export default function UserManagement() {
                   <div className="grid grid-cols-2 gap-y-2 text-xs">
                     <div>
                       <span className="text-[#9CA3AF] font-bold block mb-0.5 uppercase tracking-wider text-[0.625rem]">Role</span>
-                      <span className="font-bold text-[#4B5563]">{roleLabel(enableUser.role)}</span>
+                      <span className="font-bold text-[#4B5563]">{roleLabel(enableUser.role, rolesBySlug)}</span>
                     </div>
                     <div>
                       <span className="text-[#9CA3AF] font-bold block mb-0.5 uppercase tracking-wider text-[0.625rem]">Department</span>
@@ -1181,7 +1184,7 @@ export default function UserManagement() {
                     // Accounts created by an admin are activated immediately with the
                     // chosen role (update also records this admin as the approver).
                     await userService.update(newUser.uid, { role: newUser.role, status: 'active' });
-                    toast.success(`Account created and activated as ${roleLabel(newUser.role)}`);
+                    toast.success(`Account created and activated as ${roleLabel(newUser.role, rolesBySlug)}`);
                   } catch (error: any) {
                     toast.error(error?.message || 'Account created, but activation failed — approve it manually.');
                   }
@@ -1213,9 +1216,9 @@ export default function UserManagement() {
             >
               <div className="flex items-start justify-between gap-4 border-b px-6 py-5" style={{ borderColor: 'var(--color-border)' }}>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-black" style={{ color: 'var(--color-text-primary)' }}>Edit {roleLabel(permsTarget.role)} Permissions</h2>
+                  <h2 className="text-lg font-black" style={{ color: 'var(--color-text-primary)' }}>Edit {roleLabel(permsTarget.role, rolesBySlug)} Permissions</h2>
                   <p className="mt-1 truncate text-xs font-bold" style={{ color: 'var(--color-text-muted)' }}>
-                    Changes apply to {permsTarget.fullName} and all other {roleLabel(permsTarget.role)} users
+                    Changes apply to {permsTarget.fullName} and all other {roleLabel(permsTarget.role, rolesBySlug)} users
                   </p>
                 </div>
                 <button
