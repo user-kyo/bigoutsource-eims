@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { MapPin, Search, Download } from 'lucide-react';
 import { useDebounce } from '@/src/hooks/useDebounce';
+import { useTheme } from '@/src/contexts/ThemeContext';
 import { BaseDashboardModal } from './BaseDashboardModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 
@@ -22,6 +23,7 @@ const DEFAULT_COLORS = ['#6366F1', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '
 export function WorkArrangementModal({ isOpen, onClose, employees }: WorkArrangementModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const { isDark } = useTheme();
 
   const activeEmployees = useMemo(() => employees.filter(e => e.status === 'active'), [employees]);
 
@@ -82,6 +84,18 @@ export function WorkArrangementModal({ isOpen, onClose, employees }: WorkArrange
       'Unassigned': '#9CA3AF'
   };
 
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+    borderColor: isDark ? '#374151' : '#E5E7EB',
+    color: isDark ? '#F9FAFB' : '#111827',
+  };
+
+  const labelStyle = {
+    color: isDark ? '#F9FAFB' : '#111827',
+    fontWeight: 'bold',
+    marginBottom: '4px',
+  };
+
   return (
     <BaseDashboardModal
       isOpen={isOpen}
@@ -102,9 +116,8 @@ export function WorkArrangementModal({ isOpen, onClose, employees }: WorkArrange
                     <Pie data={arrangementDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="count">
                         {arrangementDistribution.map((entry, index) => <Cell key={`cell-${index}`} fill={ARRANGEMENT_COLORS[entry.name] || DEFAULT_COLORS[index % DEFAULT_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip contentStyle={tooltipStyle} labelStyle={labelStyle} />
                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-                    <Legend />
                 </PieChart>
                 </ResponsiveContainer>
             ) : (
@@ -122,10 +135,9 @@ export function WorkArrangementModal({ isOpen, onClose, employees }: WorkArrange
                 <BarChart data={deptComparison} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
                     <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#111827' }} width={80} />
-                    <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: isDark ? '#D1D5DB' : '#111827' }} width={80} />
+                    <Tooltip cursor={{ fill: isDark ? 'rgba(255, 255, 255, 0.06)' : '#F9FAFB' }} contentStyle={tooltipStyle} labelStyle={labelStyle} />
                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-                    <Legend wrapperStyle={{ fontSize: '10px' }} />
                     <Bar dataKey="On-Site" stackId="a" fill="#6366F1" radius={[0, 0, 0, 0]} />
                     <Bar dataKey="Hybrid" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} />
                     <Bar dataKey="Remote" stackId="a" fill="#10B981" radius={[0, 4, 4, 0]} />

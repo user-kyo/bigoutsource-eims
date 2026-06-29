@@ -751,7 +751,7 @@ export default function Dashboard() {
                           <Suspense fallback={<div className="h-full flex items-center justify-center text-[#9CA3AF] text-sm font-bold">Loading chart...</div>}>
                             <SiteChart data={siteDistribution} CustomTooltip={CustomTooltip} SITE_COLORS={SITE_COLORS} />
                           </Suspense>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
+                          <div className="absolute inset-0 pb-[36px] flex flex-col items-center justify-center pointer-events-none z-10">
                             <span className="text-3xl font-black text-[#111827]">{totalPersonnel}</span>
                             <span className="text-[0.625rem] font-black uppercase tracking-wider text-[#6B7280]">Total</span>
                           </div>
