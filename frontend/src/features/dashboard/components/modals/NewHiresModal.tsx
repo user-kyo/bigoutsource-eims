@@ -104,8 +104,8 @@ export function NewHiresModal({ isOpen, onClose, recentHires }: NewHiresModalPro
               <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} dy={10} minTickGap={20} />
               <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} allowDecimals={false} />
               <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                itemStyle={{ color: '#111827', fontWeight: 'bold' }}
+                contentStyle={{ backgroundColor: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: 'var(--color-text-primary)' }}
+                itemStyle={{ color: 'var(--color-text-primary)', fontWeight: 'bold' }}
               />
               <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
               <Area type="monotone" dataKey="count" name="Hires" stroke="#10B981" strokeWidth={2} fillOpacity={1} fill="url(#colorCount)" />

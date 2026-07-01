@@ -55,7 +55,7 @@ export function SecurityComplianceModal({ isOpen, onClose, devices, employees }:
   const nonCompliantAssets = useMemo(() => {
     const assets: any[] = [];
     devices.forEach(d => {
-        const emp = employees.find(e => e.id === d.userId);
+        const emp = employees.find(e => e.id === (d.assigneeId || d.userId));
         const dept = emp ? (emp.accountAssignment || emp.account || 'Unassigned') : 'Unassigned';
         
         let issues = [];

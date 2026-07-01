@@ -180,7 +180,7 @@ const directoryFields: Array<{ key: DirectoryFieldKey; label: string; render: (e
                 exit={{ opacity: 0, scale: 0.5 }}
                 transition={{ delay: 0.2, type: 'spring', stiffness: 500, damping: 20 }}
                 className={cn(
-                  'group relative flex items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-black shrink-0 cursor-help border shadow-sm',
+                  'group relative flex items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[0.625rem] font-black shrink-0 cursor-default border shadow-sm',
                   incomplete.type === 'critical' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
                 )}
               >

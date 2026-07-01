@@ -105,7 +105,11 @@ export function TurnoverRateModal({ isOpen, onClose, employees, turnoverRate, in
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} />
-                <Tooltip />
+                <Tooltip 
+                  cursor={{ stroke: 'var(--color-border)' }}
+                  contentStyle={{ backgroundColor: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: 'var(--color-text-primary)' }}
+                  itemStyle={{ color: 'var(--color-text-primary)', fontWeight: 'bold' }}
+                />
                 <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                 <Line type="monotone" dataKey="separations" name="Separations" stroke="#EF4444" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
@@ -122,7 +126,11 @@ export function TurnoverRateModal({ isOpen, onClose, employees, turnoverRate, in
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#111827' }} width={100} />
-                <Tooltip cursor={{ fill: '#F9FAFB' }} />
+                <Tooltip 
+                  cursor={{ fill: 'var(--color-surface-secondary)' }}
+                  contentStyle={{ backgroundColor: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: 'var(--color-text-primary)' }}
+                  itemStyle={{ color: 'var(--color-text-primary)', fontWeight: 'bold' }}
+                />
                 <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
                     {breakdownData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}

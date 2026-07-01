@@ -33,8 +33,8 @@ export function AssignedAssetsModal({ isOpen, onClose, devices, employees }: Ass
   const distributionData = useMemo(() => {
     const counts: Record<string, number> = {};
     devices.forEach(d => {
-      if (d.status === 'assigned' && d.userId) {
-        const emp = employees.find(e => e.id === d.userId);
+      if (d.status === 'assigned' && (d.assigneeId || d.userId)) {
+        const emp = employees.find(e => e.id === (d.assigneeId || d.userId));
         const dept = emp ? (emp.accountAssignment || emp.account || 'Unassigned') : 'Unassigned';
         counts[dept] = (counts[dept] || 0) + 1;
       }
@@ -44,7 +44,7 @@ export function AssignedAssetsModal({ isOpen, onClose, devices, employees }: Ass
 
   const mappedDevices = useMemo(() => {
     return devices.map(d => {
-      const emp = employees.find(e => e.id === d.userId);
+      const emp = employees.find(e => e.id === (d.assigneeId || d.userId));
       return {
         ...d,
         employeeName: emp ? emp.fullName : 'Unassigned',

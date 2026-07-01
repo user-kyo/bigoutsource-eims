@@ -157,7 +157,7 @@ export function Sidebar() {
           <div className={cn(isRetracted ? "flex justify-center" : "px-3")}>
             <div className={cn("flex items-center", isRetracted ? "justify-center" : "gap-3")}>
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[0.625rem] font-bold border shrink-0 relative group cursor-help"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[0.625rem] font-bold border shrink-0 relative group cursor-default"
                 style={{ backgroundColor: 'var(--color-surface-secondary)', color: 'var(--color-text-primary)', borderColor: 'var(--color-border)' }}
               >
                 {user.email.substring(0, 2).toUpperCase()}
