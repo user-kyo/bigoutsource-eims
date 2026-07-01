@@ -267,7 +267,7 @@ export default function Dashboard() {
           { key: 'serialNumber', label: 'Serial Number' },
           {
             key: 'assignedTo', label: 'Assigned To', render: (_: any, row: any) => {
-              const emp = employees.find(e => e.id === row.userId);
+              const emp = employees.find(e => e.id === (row.assigneeId || row.userId));
               return emp ? emp.fullName : 'Unknown';
             }
           },
@@ -340,8 +340,8 @@ export default function Dashboard() {
     });
 
     devices.forEach(device => {
-      if (!device.userId) return;
-      const emp = employees.find(e => e.id === device.userId);
+      if (!(device.assigneeId || device.userId)) return;
+      const emp = employees.find(e => e.id === (device.assigneeId || device.userId));
       if (!emp) return;
       const dept = emp.accountAssignment || emp.account;
       if (!dept) return;
@@ -936,7 +936,7 @@ export default function Dashboard() {
                       {logs.length ? (
                         logs.slice(0, 10).map((log) => (
                           <div key={log.id} className="relative pl-6">
-                            <div className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-white border-2 border-[#6366F1] shadow-sm" />
+                            <div className="absolute -left-[5px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 border-[#6366F1] shadow-sm" />
                             <div className="flex items-center gap-4 p-4 bg-[#F9FAFB] rounded-xl border border-[#E5E7EB] hover:border-[#D1D5DB] transition-all">
                               <div className="w-10 h-10 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center shrink-0 shadow-sm">
                                 <span className="text-xs font-black text-[#6366F1]">

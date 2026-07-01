@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { BarChart3, Download } from 'lucide-react';
 import { BaseDashboardModal } from './BaseDashboardModal';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell , Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell , Legend, LabelList } from 'recharts';
 
 interface DepartmentDistributionModalProps {
   isOpen: boolean;
@@ -81,17 +81,24 @@ export function DepartmentDistributionModal({ isOpen, onClose, employees }: Depa
       {/* Department Chart */}
       <div className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-sm flex flex-col">
         <h3 className="text-sm font-bold text-[#111827] mb-6">Employee Count by Department</h3>
-        <div className="flex-1 min-h-[350px]">
+        <div className="h-[350px] w-full">
           {deptStats.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptStats.slice(0, 10)} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
+              <BarChart data={deptStats.slice(0, 10)} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#111827', fontWeight: 'bold' }} width={120} />
-                <Tooltip cursor={{ fill: '#F9FAFB' }} />
-                <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={28}>
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-text-primary)', fontWeight: 'bold' }} width={120} />
+                <Tooltip 
+                  cursor={{ fill: 'var(--color-surface-secondary)' }}
+                  contentStyle={{ backgroundColor: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', color: 'var(--color-text-primary)' }}
+                  itemStyle={{ color: 'var(--color-text-primary)', fontWeight: 'bold' }}
+                />
+                <Legend 
+                  wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px', color: 'var(--color-text-primary)' }} 
+                />
+                <Bar dataKey="count" name="Headcount" fill="#6366F1" radius={[0, 4, 4, 0]} barSize={28}>
                   {deptStats.slice(0, 10).map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                  <LabelList dataKey="count" position="right" style={{ fill: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 'bold' }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -102,7 +109,7 @@ export function DepartmentDistributionModal({ isOpen, onClose, employees }: Depa
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden flex flex-col mt-6">
         <div className="p-4 border-b border-[#F3F4F6] bg-[#F9FAFB] flex justify-between items-center">
           <h3 className="text-sm font-bold text-[#111827]">Department Breakdown</h3>
           <button onClick={handleExport} className="p-2 bg-white border border-[#E5E7EB] rounded-lg hover:bg-[#F3F4F6] text-[#4B5563]" title="Export">
@@ -126,8 +133,8 @@ export function DepartmentDistributionModal({ isOpen, onClose, employees }: Depa
                   <td className="px-6 py-4 text-sm text-[#4B5563]">{dept.count}</td>
                   <td className="px-6 py-4 text-sm text-[#4B5563]">{dept.manager}</td>
                   <td className="px-6 py-4 text-sm text-[#4B5563]">
-                    <div className="flex items-center gap-2">
-                        <span className="w-10">{dept.percentage}%</span>
+                    <div className="flex items-center gap-3">
+                        <span className="w-12 text-right">{dept.percentage}%</span>
                         <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
                             <div className="h-full bg-[#6366F1]" style={{ width: `${dept.percentage}%` }} />
                         </div>
