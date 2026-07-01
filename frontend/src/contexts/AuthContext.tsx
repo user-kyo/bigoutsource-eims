@@ -161,11 +161,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
     toast.success('Logged out');
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        logout();
+        toast.error('Logged out due to 30 minutes of inactivity');
+      }, 30 * 60 * 1000); // 30 minutes
+    };
+
+    const handleUserActivity = () => {
+      resetTimer();
+    };
+
+    resetTimer();
+
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('keydown', handleUserActivity);
+    window.addEventListener('scroll', handleUserActivity);
+    window.addEventListener('click', handleUserActivity);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('scroll', handleUserActivity);
+      window.removeEventListener('click', handleUserActivity);
+    };
+  }, [user, logout]);
 
   const value = React.useMemo(() => ({
     user,
