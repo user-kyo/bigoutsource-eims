@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { generateSecret, generateURI, verifySync } from 'otplib';
+import * as otplib from 'otplib';
+const { generateSecret, generateURI, verifySync } = otplib;
 import qrcode from 'qrcode';
 import { prisma } from '../config/db.js';
 import { env } from '../config/env.js';
