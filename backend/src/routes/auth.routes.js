@@ -24,6 +24,7 @@ router.post('/logout', authenticate, AuthController.logout);
 router.put('/password', authenticate, validate(changePasswordValidator), AuthController.changePassword);
 router.post('/mfa/setup', authenticate, AuthController.setupMfa);
 router.post('/mfa/verify', authenticate, AuthController.verifyMfa);
+router.post('/mfa/disable/request', authenticate, AuthController.disableMfaRequest);
 router.post('/mfa/disable', authenticate, AuthController.disableMfa);
 
 export default router;

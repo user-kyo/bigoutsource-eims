@@ -75,6 +75,14 @@ export const AuthController = {
     }
   },
 
+  async disableMfaRequest(req, res, next) {
+    try {
+      return success(res, await AuthService.requestDisableMfa(req.user), 'Disable MFA requested');
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async disableMfa(req, res, next) {
     try {
       return success(res, await AuthService.disableMfa(req.user, req.body));

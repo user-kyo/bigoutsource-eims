@@ -40,17 +40,21 @@ export const authService = {
     return apiRequest('/auth/mfa/setup', { method: 'POST' });
   },
 
-  async verifyMfa(secret, code) {
+  async verifyMfa(setupToken, code) {
     return apiRequest('/auth/mfa/verify', {
       method: 'POST',
-      body: JSON.stringify({ secret, code }),
+      body: JSON.stringify({ setupToken, code }),
     });
   },
 
-  async disableMfa(code) {
+  async requestDisableMfa() {
+    return apiRequest('/auth/mfa/disable/request', { method: 'POST' });
+  },
+
+  async disableMfa(disableToken, code) {
     return apiRequest('/auth/mfa/disable', {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ disableToken, code }),
     });
   },
 

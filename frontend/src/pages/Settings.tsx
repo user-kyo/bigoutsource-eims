@@ -14,6 +14,7 @@ import {
   UserCheck,
   X,
   ShieldCheck,
+  Mail,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
@@ -61,7 +62,8 @@ export default function Settings() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [mfaSetupData, setMfaSetupData] = useState<{ secret: string; qrCodeUrl: string } | null>(null);
+  const [mfaSetupData, setMfaSetupData] = useState<string | null>(null);
+  const [mfaDisableToken, setMfaDisableToken] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
 
   const changePasswordErrors = useMemo(() => {
@@ -191,6 +193,7 @@ export default function Settings() {
     }
     if (activeTab === 'security') {
       setMfaSetupData(null);
+      setMfaDisableToken(null);
       setMfaCode('');
     }
 
@@ -203,7 +206,7 @@ export default function Settings() {
       try {
         setIsLoading(true);
         const data = await authService.setupMfa();
-        setMfaSetupData(data);
+        setMfaSetupData(data.setupToken);
       } catch (e: any) {
         toast.error(e.message || 'Failed to initialize MFA setup');
       } finally {
@@ -217,7 +220,7 @@ export default function Settings() {
     if (!mfaSetupData) return;
     setIsSaving(true);
     try {
-      await authService.verifyMfa(mfaSetupData.secret, mfaCode);
+      await authService.verifyMfa(mfaSetupData, mfaCode);
       toast.success('MFA enabled successfully');
       setMfaSetupData(null);
       setMfaCode('');
@@ -229,13 +232,28 @@ export default function Settings() {
     }
   };
 
-  const disableMfa = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const requestDisableMfa = async () => {
     setIsSaving(true);
     try {
-      await authService.disableMfa(mfaCode);
+      const data = await authService.requestDisableMfa();
+      setMfaDisableToken(data.disableToken);
+      toast.success('Verification code sent to your email');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to request disable code');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const disableMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaDisableToken) return;
+    setIsSaving(true);
+    try {
+      await authService.disableMfa(mfaDisableToken, mfaCode);
       toast.success('MFA disabled successfully');
       setMfaCode('');
+      setMfaDisableToken(null);
       await refreshUser();
     } catch (e: any) {
       toast.error(e.message || 'Invalid code');
@@ -466,10 +484,8 @@ export default function Settings() {
                 {!user?.mfaEnabled ? (
                   mfaSetupData && (
                     <form onSubmit={verifyMfa} className="grid max-w-xl gap-4">
-                      <div className="flex flex-col items-center mb-4">
-                        <p className="text-sm font-bold text-gray-700 mb-2">Scan this QR code with your authenticator app:</p>
-                        <img src={mfaSetupData.qrCodeUrl} alt="MFA QR Code" className="w-48 h-48 rounded-xl shadow-sm border" />
-                        <p className="text-xs text-gray-500 mt-2 font-mono">{mfaSetupData.secret}</p>
+                      <div className="flex flex-col mb-4">
+                        <p className="text-sm font-bold text-gray-700 mb-2">We've sent a 6-digit verification code to your email.</p>
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold text-[#374151] uppercase tracking-wider">Verification Code</label>
@@ -497,26 +513,41 @@ export default function Settings() {
                     <p className="text-sm font-medium text-green-700 bg-green-50 p-4 rounded-xl border border-green-200">
                       Multi-Factor Authentication is currently enabled.
                     </p>
-                    <div className="flex flex-col gap-1.5 mt-2">
-                      <label className="text-xs font-bold text-[#374151] uppercase tracking-wider">Verification Code</label>
-                      <input
-                        type="text"
-                        required
-                        value={mfaCode}
-                        onChange={(e) => setMfaCode(e.target.value)}
-                        placeholder="000000"
-                        className="w-full px-4 py-3 bg-[#F3F4F6] border-none rounded-xl text-sm focus:ring-2 focus:ring-[#111827] transition-all outline-none"
-                      />
-                      <p className="text-xs text-gray-500">Enter a code from your authenticator app to disable MFA.</p>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={isSaving || mfaCode.length < 6}
-                      className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700 disabled:opacity-50 transition-all active:scale-[0.98]"
-                    >
-                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                      Disable MFA
-                    </button>
+                    
+                    {!mfaDisableToken ? (
+                      <button
+                        type="button"
+                        onClick={requestDisableMfa}
+                        disabled={isSaving}
+                        className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700 disabled:opacity-50 transition-all active:scale-[0.98]"
+                      >
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                        Send Disable Code
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          <label className="text-xs font-bold text-[#374151] uppercase tracking-wider">Verification Code</label>
+                          <input
+                            type="text"
+                            required
+                            value={mfaCode}
+                            onChange={(e) => setMfaCode(e.target.value)}
+                            placeholder="000000"
+                            className="w-full px-4 py-3 bg-[#F3F4F6] border-none rounded-xl text-sm focus:ring-2 focus:ring-[#111827] transition-all outline-none"
+                          />
+                          <p className="text-xs text-gray-500">Enter the code sent to your email to disable MFA.</p>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isSaving || mfaCode.length < 6}
+                          className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700 disabled:opacity-50 transition-all active:scale-[0.98]"
+                        >
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                          Disable MFA
+                        </button>
+                      </>
+                    )}
                   </form>
                 )}
               </section>

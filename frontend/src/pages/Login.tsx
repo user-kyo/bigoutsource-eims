@@ -102,16 +102,21 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5 w-full relative" noValidate>
             {mfaToken ? (
-              <AuthInput
-                icon={Clock}
-                label="Authentication Code"
-                type="text"
-                value={mfaCode}
-                onChange={setMfaCode}
-                placeholder="123456"
-                error={loginError || undefined}
-                required
-              />
+              <div className="space-y-4">
+                <p className="text-sm text-center text-gray-600 cursor-default select-none">
+                  We've sent a 6-digit code to your email. Please enter it below.
+                </p>
+                <AuthInput
+                  icon={Mail}
+                  label="Verification Code"
+                  type="text"
+                  value={mfaCode}
+                  onChange={setMfaCode}
+                  placeholder="123456"
+                  error={loginError || undefined}
+                  required
+                />
+              </div>
             ) : (
               <>
                 <AuthInput
