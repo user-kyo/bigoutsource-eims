@@ -51,7 +51,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 5000, // Increased to support multiple employees on the same office network
   standardHeaders: true,
   legacyHeaders: false,
 });
