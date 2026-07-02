@@ -8,6 +8,12 @@ import { env } from '../config/env.js';
 import { AppError } from '../utils/apiResponse.js';
 import { RoleService } from '../services/role.service.js';
 import { publicUserPayload } from '../utils/publicUser.js';
+import { EmailService } from './email.service.js';
+
+function generateRandomCode(length = 6) {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
@@ -94,7 +100,12 @@ export const AuthService = {
         }
       }
 
-      const mfaToken = jwt.sign({ id: profile.id, email: profile.email, mfaPending: true }, process.env.JWT_SECRET, {
+      const code = generateRandomCode();
+      const codeHash = await bcrypt.hash(code, 10);
+      
+      await EmailService.sendMfaOtpEmail(profile.email, code);
+
+      const mfaToken = jwt.sign({ id: profile.id, email: profile.email, mfaPending: true, codeHash }, process.env.JWT_SECRET, {
         expiresIn: '5m',
       });
       return { requiresMfa: true, mfaToken };
@@ -124,12 +135,16 @@ export const AuthService = {
 
     const profile = await assertActiveProfile(decoded.id);
 
-    if (!profile.mfaEnabled || !profile.mfaSecret) {
+    if (!profile.mfaEnabled) {
       throw new AppError('MFA is not enabled for this account', 400);
     }
 
-    const isValid = verifySync({ token: code, secret: profile.mfaSecret }).valid;
-    if (!isValid) {
+    if (!decoded.codeHash) {
+      throw new AppError('Invalid MFA token format', 400);
+    }
+
+    const isMatch = await bcrypt.compare(code, decoded.codeHash);
+    if (!isMatch) {
       throw new AppError('Invalid MFA code', 401);
     }
 
@@ -176,23 +191,38 @@ export const AuthService = {
       throw new AppError('MFA is already enabled', 400);
     }
 
-    const secret = generateSecret();
-    const otpauth = generateURI({ issuer: 'BigOutsource', label: profile.email, secret });
-    const qrCodeUrl = await qrcode.toDataURL(otpauth);
+    const code = generateRandomCode();
+    const codeHash = await bcrypt.hash(code, 10);
 
-    return { secret, qrCodeUrl };
+    await EmailService.sendMfaOtpEmail(profile.email, code);
+
+    const setupToken = jwt.sign({ id: profile.id, codeHash, mfaSetup: true }, process.env.JWT_SECRET, {
+      expiresIn: '5m',
+    });
+
+    return { setupToken };
   },
 
-  async verifyMfa(user, { secret, code }) {
-    const isValid = verifySync({ token: code, secret }).valid;
-    if (!isValid) {
+  async verifyMfa(user, { setupToken, code }) {
+    let decoded;
+    try {
+      decoded = jwt.verify(setupToken, process.env.JWT_SECRET);
+    } catch (err) {
+      throw new AppError('Invalid or expired setup token', 401);
+    }
+
+    if (!decoded.mfaSetup || decoded.id !== user.id) {
+      throw new AppError('Invalid setup token', 401);
+    }
+
+    const isMatch = await bcrypt.compare(code, decoded.codeHash);
+    if (!isMatch) {
       throw new AppError('Invalid verification code', 400);
     }
 
     await prisma.userProfile.update({
       where: { id: user.id },
       data: {
-        mfaSecret: secret,
         mfaEnabled: true,
       },
     });
@@ -200,14 +230,43 @@ export const AuthService = {
     return { success: true, message: 'MFA enabled successfully' };
   },
 
-  async disableMfa(user, { code }) {
+  async requestDisableMfa(user) {
     const profile = await prisma.userProfile.findUnique({ where: { id: user.id } });
     if (!profile.mfaEnabled) {
       throw new AppError('MFA is not enabled', 400);
     }
 
-    const isValid = verifySync({ token: code, secret: profile.mfaSecret }).valid;
-    if (!isValid) {
+    const code = generateRandomCode();
+    const codeHash = await bcrypt.hash(code, 10);
+
+    await EmailService.sendMfaOtpEmail(profile.email, code);
+
+    const disableToken = jwt.sign({ id: profile.id, codeHash, mfaDisable: true }, process.env.JWT_SECRET, {
+      expiresIn: '5m',
+    });
+
+    return { disableToken };
+  },
+
+  async disableMfa(user, { disableToken, code }) {
+    const profile = await prisma.userProfile.findUnique({ where: { id: user.id } });
+    if (!profile.mfaEnabled) {
+      throw new AppError('MFA is not enabled', 400);
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(disableToken, process.env.JWT_SECRET);
+    } catch (err) {
+      throw new AppError('Invalid or expired disable token', 401);
+    }
+
+    if (!decoded.mfaDisable || decoded.id !== user.id) {
+      throw new AppError('Invalid disable token', 401);
+    }
+
+    const isMatch = await bcrypt.compare(code, decoded.codeHash);
+    if (!isMatch) {
       throw new AppError('Invalid verification code', 400);
     }
 
